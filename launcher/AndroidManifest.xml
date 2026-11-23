@@ -90,7 +90,7 @@
   <uses-permission android:name="com.smartisanos.permission.facerecognition" />
   <uses-permission android:name="com.smartisan.permission.ACCOUNT_CENTER" />
   <application android:theme="@0x7f0c015d" android:label="@0x7f0b0043" android:icon="@0x7f020184" android:name="com.smartisanos.launcher.LauncherApplication" android:configChanges="0x400027FF" android:allowBackup="false" android:hardwareAccelerated="true" android:largeHeap="true" android:extractNativeLibs="true" android:usesCleartextTraffic="true" android:appComponentFactory="android.support.v4.app.CoreComponentFactory">
-    <activity android:theme="@0x7f0c0163" android:name="com.smartisanos.launcher.Launcher" android:exported="true" android:taskAffinity="smartisanos.task.launcher" android:clearTaskOnLaunch="true" android:stateNotNeeded="true" android:excludeFromRecents="true" android:launchMode="2" android:screenOrientation="1" android:configChanges="0x80003FFF" android:windowSoftInputMode="0x00000020" android:resumeWhilePausing="true">
+    <activity android:theme="@0x7f0c0163" android:name="com.smartisanos.launcher.Launcher" android:exported="true" android:taskAffinity="smartisanos.task.launcher" android:clearTaskOnLaunch="true" android:stateNotNeeded="true" android:excludeFromRecents="true" android:launchMode="2" android:screenOrientation="user" android:configChanges="0x80003FFF" android:windowSoftInputMode="0x00000020" android:resumeWhilePausing="true">
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.HOME" />
@@ -111,7 +111,7 @@
       </intent-filter>
     </activity>
     <activity android:theme="@android:01030010" android:name="com.smartisanos.launcher.ShortcutLaunchActivity" android:exported="false" android:excludeFromRecents="true" />
-    <activity android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:name="com.smartisanos.launcher.ConfirmPasswordActivity" android:exported="true" android:taskAffinity="smartisanos.task.launcher.confirm" android:multiprocess="true" android:excludeFromRecents="true" android:launchMode="1" android:screenOrientation="1" android:configChanges="0x00002480">
+    <activity android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:name="com.smartisanos.launcher.ConfirmPasswordActivity" android:exported="true" android:taskAffinity="smartisanos.task.launcher.confirm" android:multiprocess="true" android:excludeFromRecents="true" android:launchMode="1" android:screenOrientation="behind" android:configChanges="0x00002480">
       <intent-filter>
         <action android:name="com.smartisanos.launcher.verify_password" />
         <category android:name="android.intent.category.DEFAULT" />
@@ -122,16 +122,16 @@
       </intent-filter>
       <meta-data android:name="revone_entry" android:value="com.smartisanos.desktop/com.smartisanos.launcher.ConfirmPasswordActivity" />
     </activity>
-    <activity android:theme="@0x7f0c015f" android:name="com.smartisanos.launcher.theme.ThemeChooserActivity" android:exported="true" android:enableOnBackInvokedCallback="true" android:taskAffinity="com.android.settings" android:excludeFromRecents="true" android:launchMode="1" android:screenOrientation="1">
+    <activity android:theme="@0x7f0c015f" android:name="com.smartisanos.launcher.theme.ThemeChooserActivity" android:exported="true" android:enableOnBackInvokedCallback="true" android:taskAffinity="com.android.settings" android:excludeFromRecents="true" android:launchMode="1" android:screenOrientation="behind">
       <meta-data android:name="smartisanos.PACKAGELOCK_PACKAGENAME" android:value="com.android.settings" />
     </activity>
-    <activity android:theme="@0x7f0c015f" android:name="com.smartisanos.launcher.theme.ThemeItemActivity" android:taskAffinity="com.android.settings" android:launchMode="1" android:screenOrientation="1">
+    <activity android:theme="@0x7f0c015f" android:name="com.smartisanos.launcher.theme.ThemeItemActivity" android:taskAffinity="com.android.settings" android:launchMode="1" android:screenOrientation="behind">
       <meta-data android:name="smartisanos.PACKAGELOCK_PACKAGENAME" android:value="com.android.settings" />
     </activity>
-    <activity android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" android:name="com.smartisanos.launcher.reload.ReloadTransitionActivity" android:process=":reload" android:exported="false" android:excludeFromRecents="true" android:taskAffinity="com.smartisanos.launcher.reload" android:screenOrientation="portrait" />
-    <activity android:theme="@android:style/Theme.Translucent.NoTitleBar" android:name="com.smartisanos.launcher.quicksearch.ui.OriginalQuickSearchActivity" android:exported="false" android:excludeFromRecents="true" android:launchMode="singleTask" android:screenOrientation="portrait" android:windowSoftInputMode="adjustNothing" android:windowDisablePreview="true" />
+    <activity android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" android:name="com.smartisanos.launcher.reload.ReloadTransitionActivity" android:process=":reload" android:exported="false" android:excludeFromRecents="true" android:taskAffinity="com.smartisanos.launcher.reload" android:screenOrientation="behind" />
+    <activity android:theme="@android:style/Theme.Translucent.NoTitleBar" android:name="com.smartisanos.launcher.quicksearch.ui.OriginalQuickSearchActivity" android:exported="false" android:excludeFromRecents="true" android:launchMode="singleTask" android:screenOrientation="behind" android:windowSoftInputMode="adjustNothing" android:windowDisablePreview="true" />
     <provider android:name="com.smartisanos.launcher.data.ExportDataProvider" android:readPermission="com.ranhf.smartisanlauncher.permission.READ_DATABASE" android:writePermission="com.ranhf.smartisanlauncher.permission.WRITE_DATABASE" android:exported="true" android:authorities="com.smartisanos.launcher.exportprovider" />
-    <activity android:name="com.smartisanos.launcher.StartActivityForSearch" android:exported="true" android:stateNotNeeded="true" android:excludeFromRecents="true" android:screenOrientation="1">
+    <activity android:name="com.smartisanos.launcher.StartActivityForSearch" android:exported="true" android:stateNotNeeded="true" android:excludeFromRecents="true" android:screenOrientation="behind">
       <intent-filter>
         <action android:name="android.intent.action.SEARCH" />
         <category android:name="android.intent.category.DEFAULT" />

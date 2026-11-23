@@ -78,8 +78,7 @@ public final class ReloadTransitionActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Launcher itself is portrait-only; lock this private cover before it creates content.
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        com.smartisanos.launcher.data.TabletLayout.applyOrientation(this);
         getWindow().setWindowAnimations(0);
         getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
         setFinishOnTouchOutside(false);

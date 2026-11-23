@@ -7666,6 +7666,8 @@
 .method public static initLayoutParams(Landroid/content/Context;)V
     .locals 9
 
+    invoke-static {p0}, Lcom/smartisanos/launcher/data/TabletLayout;->recordScene(Landroid/content/Context;)V
+
     .line 1
     invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
 

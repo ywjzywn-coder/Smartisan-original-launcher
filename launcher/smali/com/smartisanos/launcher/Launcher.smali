@@ -123,6 +123,8 @@
     .line 1
     invoke-super {p0, p1}, Landroid/app/Activity;->onConfigurationChanged(Landroid/content/res/Configuration;)V
 
+    invoke-static {p0}, Lcom/smartisanos/launcher/data/TabletLayout;->onConfigurationChanged(Landroid/app/Activity;)V
+
     .line 2
     invoke-static {}, Lcom/smartisanos/launcher/J;->Ua()Z
 
@@ -183,6 +185,8 @@
     return-void
 
     :home_entry_ready
+
+    invoke-static {p0}, Lcom/smartisanos/launcher/data/TabletLayout;->applyOrientation(Landroid/app/Activity;)V
     const-string v0, "LAUNCHER_ACTIVITY_CREATE_BEGIN"
 
     invoke-static {v0}, Lcom/smartisanos/launcher/diagnostics/StartupCompatibilityLogger;->mark(Ljava/lang/String;)V
@@ -369,6 +373,8 @@
     .line 1
     invoke-super {p0}, Landroid/app/Activity;->onPause()V
 
+    invoke-static {p0}, Lcom/smartisanos/launcher/data/TabletLayout;->onHomePaused(Landroid/app/Activity;)V
+
     invoke-static {p0}, Lcom/smartisanos/launcher/gesture/LauncherHomeCompat;->onLauncherPaused(Landroid/app/Activity;)V
 
     invoke-static {p0}, Lcom/smartisanos/launcher/theme/LauncherBelowKeyguardCompat;->onLauncherPaused(Landroid/app/Activity;)V
@@ -388,6 +394,8 @@
 
     .line 1
     invoke-super {p0}, Landroid/app/Activity;->onResume()V
+
+    invoke-static {p0}, Lcom/smartisanos/launcher/data/TabletLayout;->onHomeResumed(Landroid/app/Activity;)V
 
     invoke-static {p0}, Lcom/smartisanos/launcher/gesture/LauncherHomeCompat;->onLauncherResuming(Landroid/app/Activity;)V
 

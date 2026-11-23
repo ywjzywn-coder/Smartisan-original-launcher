@@ -466,6 +466,10 @@
 
     if-le p2, p3, :cond_6
 
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result p1
+    if-nez p1, :cond_6
+
     .line 11
     sget-boolean p1, Lcom/smartisanos/launcher/data/Constants;->ENABLE_LARGE_SCREEN_MODE:Z
 

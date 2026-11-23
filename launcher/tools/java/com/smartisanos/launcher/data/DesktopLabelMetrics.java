@@ -71,6 +71,10 @@ public final class DesktopLabelMetrics {
                     "com.smartisanos.launcher.data.Constants");
             Field width = constants.getField("window_width");
             int value = width.getInt(null);
+            if (TabletLayout.supportsLandscapeSurface()) {
+                int height = constants.getField("window_height").getInt(null);
+                if (height > 0 && value > height) value = height;
+            }
             return value > 0 ? value / BASE_WIDTH : 1.0f;
         } catch (Throwable ignored) {
             return 1.0f;

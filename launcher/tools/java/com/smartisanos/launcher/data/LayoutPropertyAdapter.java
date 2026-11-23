@@ -65,8 +65,16 @@ public final class LayoutPropertyAdapter {
         boolean desktopPortrait = !folderLayout && selectedDirectory != null
                 && selectedDirectory.startsWith("layout/portrait/");
         int[] profile = desktopPortrait ? selectedProfile(resources, selectedDirectory) : null;
+        boolean tablet = resources != null && TabletLayout.isTablet(resources.getConfiguration())
+                && selectedDirectory != null && selectedDirectory.startsWith("layout/portrait/");
+        boolean tabletLandscape = tablet && width > height;
+        if (tabletLandscape && folderLayout) {
+            // Fit the complete shelf scene on the short axis, including its touch grid.
+            scaleX = Math.min(scaleX, scaleY);
+        }
         float placementScaleY = profile == null ? 1.0f : height / (float) profile[1];
         float localScale = profile == null ? scaleX : width / (float) profile[0];
+        if (tabletLandscape) localScale = Math.min(scaleX, scaleY);
         boolean acceptance = desktopPortrait && acceptanceEnabled(resources);
         float nameOriginal = acceptance ? numericField(property, "name_off_set_y") : 0f;
         float iconOriginal = acceptance ? numericField(property, "icon_offset_y") : 0f;
@@ -83,13 +91,23 @@ public final class LayoutPropertyAdapter {
         if (!folderLayout) {
             scaleIconBoxes(property, iconScale);
         }
-        if (!desktopPortrait && Math.abs(scale - 1.0f) < EPSILON
+        if (!tablet && !desktopPortrait && Math.abs(scale - 1.0f) < EPSILON
                 && Math.abs(scaleX - 1.0f) < EPSILON
                 && Math.abs(scaleY - 1.0f) < EPSILON) {
             return;
         }
 
         try {
+            if (tabletLandscape && !folderLayout) {
+                // The model persists linear slots. Both drawing and hit tests consume
+                // these fields when Constants builds pageCellAllCenterPoints.
+                float rows = numericField(property, "page_cell_row_num");
+                float columns = numericField(property, "page_cell_col_num");
+                if (rows > columns && columns > 0) {
+                    setNumericField(property, "page_cell_row_num", columns);
+                    setNumericField(property, "page_cell_col_num", rows);
+                }
+            }
             Field[] fields = property.getClass().getFields();
             for (Field field : fields) {
                 String name = field.getName();
@@ -108,6 +126,23 @@ public final class LayoutPropertyAdapter {
                         int value = field.getInt(property);
                         field.setInt(property, Math.round(value * factor));
                     }
+                }
+            }
+            if (tablet && !folderLayout) {
+                // Allocate a navigation strip below the dock. Its center moves by
+                // half the added height, so move the icons the remaining half.
+                int inset = TabletLayout.bottomInset();
+                for (String key : new String[]{"dock_cells_offset_y", "dock_cells_offset_y_without_app_name"}) {
+                    setNumericField(property, key, numericField(property, key) + inset * 0.5f);
+                }
+                setNumericField(property, "dock_height", numericField(property, "dock_height") + inset);
+            }
+            if (tabletLandscape && folderLayout) {
+                float shelfWidth = numericField(property, "folder_bookcase_width");
+                if (shelfWidth > 0f && shelfWidth < width) {
+                    float margin = (width - shelfWidth) / 2f;
+                    setNumericField(property, "page_view_margin_left", margin);
+                    setNumericField(property, "page_view_margin_right", margin);
                 }
             }
             Log.i(TAG, "adapt suffix=" + suffix
