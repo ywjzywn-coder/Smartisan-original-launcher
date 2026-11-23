@@ -373,8 +373,6 @@
     .line 1
     invoke-super {p0}, Landroid/app/Activity;->onPause()V
 
-    invoke-static {p0}, Lcom/smartisanos/launcher/data/TabletLayout;->onHomePaused(Landroid/app/Activity;)V
-
     invoke-static {p0}, Lcom/smartisanos/launcher/gesture/LauncherHomeCompat;->onLauncherPaused(Landroid/app/Activity;)V
 
     invoke-static {p0}, Lcom/smartisanos/launcher/theme/LauncherBelowKeyguardCompat;->onLauncherPaused(Landroid/app/Activity;)V
@@ -394,8 +392,6 @@
 
     .line 1
     invoke-super {p0}, Landroid/app/Activity;->onResume()V
-
-    invoke-static {p0}, Lcom/smartisanos/launcher/data/TabletLayout;->onHomeResumed(Landroid/app/Activity;)V
 
     invoke-static {p0}, Lcom/smartisanos/launcher/gesture/LauncherHomeCompat;->onLauncherResuming(Landroid/app/Activity;)V
 

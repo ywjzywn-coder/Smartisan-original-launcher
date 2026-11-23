@@ -1496,6 +1496,14 @@
 
     if-gtz p0, :cond_0
 
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result v2
+    if-eqz v2, :no_dock_items
+    invoke-static {p2}, Lcom/smartisanos/launcher/data/Constants;->isMultiPageMode(I)Z
+    move-result v2
+    if-nez v2, :no_dock_items
+    invoke-static {v0}, Lcom/smartisanos/launcher/quickdesktop/TabletHome;->setPinnedCount(I)V
+    :no_dock_items
     return-object v1
 
     .line 44
@@ -1624,6 +1632,16 @@
     .line 56
     :cond_8
     :goto_3
+    if-nez v3, :dock_metrics_ready
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result p1
+    if-eqz p1, :dock_metrics_ready
+    invoke-static {v2, p0}, Lcom/smartisanos/launcher/data/TabletLayout;->dockPitch(FI)F
+    move-result v5
+    invoke-static {v2, p0}, Lcom/smartisanos/launcher/data/TabletLayout;->dockLeft(FI)F
+    move-result v6
+    invoke-static {p0}, Lcom/smartisanos/launcher/quickdesktop/TabletHome;->setPinnedCount(I)V
+    :dock_metrics_ready
     invoke-static {v1}, Lcom/smartisanos/launcher/view/x;->a(Lcom/smartisanos/launcher/data/LayoutProperty;)F
 
     move-result p1

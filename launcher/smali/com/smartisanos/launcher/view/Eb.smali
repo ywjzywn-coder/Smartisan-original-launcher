@@ -5249,6 +5249,42 @@
     return-void
 .end method
 
+.method public rebuildTabletPages()V
+    .locals 4
+    iget-object v0, p0, Lcom/smartisanos/launcher/view/Eb;->px:Lcom/smartisanos/launcher/view/b/fa;
+    invoke-virtual {v0}, Lcom/smartisanos/launcher/view/b/fa;->sr()I
+    move-result v1
+    const/4 v0, 0x0
+    # A cached cell camera projects the old cell dimensions onto the new offscreen target.
+    invoke-static {}, Lcom/smartisanos/smengine/Ra;->getInstance()Lcom/smartisanos/smengine/Ra;
+    move-result-object v2
+    invoke-virtual {v2}, Lcom/smartisanos/smengine/Ra;->at()Lcom/smartisanos/smengine/k;
+    move-result-object v2
+    const-string v3, "cellCamera"
+    invoke-virtual {v2, v3, v0}, Lcom/smartisanos/smengine/k;->a(Ljava/lang/String;Lcom/smartisanos/smengine/Camera;)V
+    const-string v3, "cellCamera_just_for_open_camera"
+    invoke-virtual {v2, v3, v0}, Lcom/smartisanos/smengine/k;->a(Ljava/lang/String;Lcom/smartisanos/smengine/Camera;)V
+    # Rebind the persisted page headers consumed by oh() on the initial GL pass.
+    sget-object v2, Lcom/smartisanos/launcher/Aa;->ei:Ljava/util/List;
+    invoke-interface {v2}, Ljava/util/List;->clear()V
+    invoke-static {}, Lcom/smartisanos/launcher/data/a/q;->Hf()Ljava/util/List;
+    move-result-object v0
+    invoke-interface {v2,v0}, Ljava/util/List;->addAll(Ljava/util/Collection;)Z
+    const/4 v0, 0x0
+    iput-object v0, p0, Lcom/smartisanos/launcher/view/Eb;->Xu:Lcom/smartisanos/launcher/view/V;
+    iput-object v0, p0, Lcom/smartisanos/launcher/view/Eb;->qx:Lcom/smartisanos/launcher/view/hc;
+    iput-boolean v0, p0, Lcom/smartisanos/launcher/view/Eb;->kx:Z
+    iput-object v0, p0, Lcom/smartisanos/launcher/view/Eb;->px:Lcom/smartisanos/launcher/view/b/fa;
+    iput-object v0, p0, Lcom/smartisanos/launcher/view/Eb;->mBackground:Lcom/smartisanos/smengine/F;
+    invoke-virtual {p0}, Lcom/smartisanos/launcher/view/Eb;->Vh()V
+    if-lez v1, :resize_done
+    iget-object v2, p0, Lcom/smartisanos/launcher/view/Eb;->px:Lcom/smartisanos/launcher/view/b/fa;
+    if-eqz v2, :resize_done
+    invoke-virtual {v2, v1, v0}, Lcom/smartisanos/launcher/view/b/fa;->g(IF)V
+    :resize_done
+    return-void
+.end method
+
 .method public Vh()V
     .locals 9
 

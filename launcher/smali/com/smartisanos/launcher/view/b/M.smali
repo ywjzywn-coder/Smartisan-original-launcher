@@ -14077,7 +14077,7 @@
 .end method
 
 .method public tn()Lcom/smartisanos/launcher/view/a/g;
-    .locals 3
+    .locals 5
 
     const/4 v0, 0x0
 
@@ -14111,6 +14111,19 @@
 
     if-eqz v2, :cond_0
 
+    instance-of v2, p0, Lcom/smartisanos/launcher/view/b/a;
+    if-nez v2, :found_empty
+    invoke-virtual {v1}, Lcom/smartisanos/launcher/view/a/g;->getRowIndex()I
+    move-result v2
+    invoke-virtual {v1}, Lcom/smartisanos/launcher/view/a/g;->Al()I
+    move-result v3
+    invoke-virtual {p0,v2,v3}, Lcom/smartisanos/launcher/view/b/M;->getIndex(II)I
+    move-result v2
+    iget v3, p0, Lcom/smartisanos/launcher/view/b/M;->pageIndex:I
+    invoke-static {v3,v2}, Lcom/smartisanos/launcher/backup/TabletSlots;->reserved(II)Z
+    move-result v2
+    if-nez v2, :cond_0
+    :found_empty
     return-object v1
 
     :cond_0

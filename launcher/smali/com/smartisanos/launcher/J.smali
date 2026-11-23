@@ -995,6 +995,7 @@
     iput-object p1, p0, Lcom/smartisanos/launcher/J;->mRootView:Lcom/smartisanos/launcher/view/RootView;
 
     invoke-static {p1}, Lcom/smartisanos/launcher/quickdesktop/QuickDesktopController;->attach(Landroid/view/ViewGroup;)V
+    invoke-static {p1}, Lcom/smartisanos/launcher/quickdesktop/TabletHome;->attach(Landroid/view/ViewGroup;)V
 
     .line 6
     invoke-virtual {v1, p2}, Landroid/view/Window;->findViewById(I)Landroid/view/View;
@@ -2246,7 +2247,19 @@
     .line 68
     iget-object p3, p0, Lcom/smartisanos/launcher/J;->cg:Lcom/smartisanos/launcher/view/SMGLSurfaceView;
 
+    invoke-virtual {p3}, Landroid/view/View;->getResources()Landroid/content/res/Resources;
+    move-result-object v1
+    invoke-virtual {v1}, Landroid/content/res/Resources;->getConfiguration()Landroid/content/res/Configuration;
+    move-result-object v1
+    invoke-static {v1}, Lcom/smartisanos/launcher/data/TabletLayout;->isTablet(Landroid/content/res/Configuration;)Z
+    move-result v1
+    if-eqz v1, :original_surface_order
+    const/4 v1, 0x0
+    invoke-virtual {p3, v1}, Landroid/opengl/GLSurfaceView;->setZOrderOnTop(Z)V
+    goto :surface_order_done
+    :original_surface_order
     invoke-virtual {p3, p2}, Landroid/opengl/GLSurfaceView;->setZOrderOnTop(Z)V
+    :surface_order_done
 
     .line 69
     iget-object p3, p0, Lcom/smartisanos/launcher/J;->cg:Lcom/smartisanos/launcher/view/SMGLSurfaceView;

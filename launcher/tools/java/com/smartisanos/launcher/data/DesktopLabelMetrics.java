@@ -73,7 +73,8 @@ public final class DesktopLabelMetrics {
             int value = width.getInt(null);
             if (TabletLayout.supportsLandscapeSurface()) {
                 int height = constants.getField("window_height").getInt(null);
-                if (height > 0 && value > height) value = height;
+                if (height > 0) value = Math.min(value,height);
+                return Math.min(value / BASE_WIDTH, TabletLayout.density() * .44f);
             }
             return value > 0 ? value / BASE_WIDTH : 1.0f;
         } catch (Throwable ignored) {

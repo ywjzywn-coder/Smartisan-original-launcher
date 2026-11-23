@@ -129,13 +129,28 @@ public final class LayoutPropertyAdapter {
                 }
             }
             if (tablet && !folderLayout) {
-                // Allocate a navigation strip below the dock. Its center moves by
-                // half the added height, so move the icons the remaining half.
-                int inset = TabletLayout.bottomInset();
-                for (String key : new String[]{"dock_cells_offset_y", "dock_cells_offset_y_without_app_name"}) {
-                    setNumericField(property, key, numericField(property, key) + inset * 0.5f);
+                if (resourceMode == 12 || resourceMode == 20) {
+                    float density = resources.getDisplayMetrics().density;
+                    float dock = 84f * density + TabletLayout.bottomInset();
+                    setNumericField(property, "dock_height", dock);
+                    setNumericField(property, "dock_cells_offset_y", TabletLayout.bottomInset() / 2f);
+                    setNumericField(property, "dock_cells_offset_y_without_app_name", TabletLayout.bottomInset() / 2f);
+                    float rows = numericField(property, "page_cell_row_num");
+                    float cols = numericField(property, "page_cell_col_num");
+                    float edge = Math.min(width / Math.max(1f,cols),
+                            (height - dock - 28f*density) / Math.max(1f,rows));
+                    float art = numericField(property, "icon_size_origin_resize");
+                    if (art <= 0) art = numericField(property, "icon_size_origin");
+                    float wanted = Math.min(50f * density, edge * .37f);
+                    if (art > 0 && wanted > 0) {
+                        float ratio = Math.min(1f, wanted / art);
+                        for (String name : new String[]{"icon_size_origin","icon_size_origin_resize",
+                                "icon_size_with_shadow"}) {
+                            scaleNumericField(property, name, ratio);
+                        }
+                        scaleFolderPreviewForIconSize(property, ratio);
+                    }
                 }
-                setNumericField(property, "dock_height", numericField(property, "dock_height") + inset);
             }
             if (tabletLandscape && folderLayout) {
                 float shelfWidth = numericField(property, "folder_bookcase_width");

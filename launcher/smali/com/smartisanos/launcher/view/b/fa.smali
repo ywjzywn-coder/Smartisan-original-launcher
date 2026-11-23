@@ -6995,7 +6995,7 @@
 .end method
 
 .method public a(ILjava/lang/String;Lcom/smartisanos/launcher/data/Q;)Lcom/smartisanos/launcher/view/b/M;
-    .locals 4
+    .locals 5
 
     .line 9
     sget-boolean v0, Lcom/smartisanos/launcher/va;->DBG:Z
@@ -7028,6 +7028,35 @@
 
     if-eqz v0, :cond_1
 
+    invoke-static {p1}, Lcom/smartisanos/launcher/backup/TabletSlots;->keepCellIndices(I)Z
+    move-result v1
+    if-eqz v1, :page_items_ready
+    # The legacy page constructor consumes a positional list before setting pageIndex.
+    new-instance v1, Ljava/util/ArrayList;
+    invoke-direct {v1}, Ljava/util/ArrayList;-><init>()V
+    invoke-virtual {v0}, Ljava/util/ArrayList;->iterator()Ljava/util/Iterator;
+    move-result-object v0
+    :sparse_next
+    invoke-interface {v0}, Ljava/util/Iterator;->hasNext()Z
+    move-result v2
+    if-eqz v2, :sparse_done
+    invoke-interface {v0}, Ljava/util/Iterator;->next()Ljava/lang/Object;
+    move-result-object v2
+    check-cast v2, Lcom/smartisanos/launcher/data/ItemInfo;
+    :pad_cell
+    invoke-virtual {v1}, Ljava/util/ArrayList;->size()I
+    move-result v3
+    iget v4, v2, Lcom/smartisanos/launcher/data/ItemInfo;->cellIndex:I
+    if-ge v3, v4, :append_cell
+    const/4 v3, 0x0
+    invoke-virtual {v1,v3}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+    goto :pad_cell
+    :append_cell
+    invoke-virtual {v1,v2}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+    goto :sparse_next
+    :sparse_done
+    move-object v0,v1
+    :page_items_ready
     .line 11
     invoke-virtual {v0}, Ljava/util/ArrayList;->size()I
 

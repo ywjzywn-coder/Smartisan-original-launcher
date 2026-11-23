@@ -237,6 +237,7 @@
 
     :workspace_state_ready
     invoke-static {p1, v0, v1}, Lcom/smartisanos/launcher/quickdesktop/QuickDesktopController;->publishWorkspaceState(Ljava/lang/Object;II)V
+    invoke-static {p1, v0, v1}, Lcom/smartisanos/launcher/view/TabletScene;->publish(Lcom/smartisanos/launcher/view/b/fa;II)V
 
     if-eqz v2, :quick_desktop_capture_done
 
@@ -332,9 +333,17 @@
 .end method
 
 .method public onSurfaceChanged(Ljavax/microedition/khronos/opengles/GL10;II)V
-    .locals 3
+    .locals 4
 
     invoke-static {p2, p3}, Lcom/smartisanos/launcher/gesture/LauncherHomeCompat;->onRendererSizeChanged(II)V
+
+    const/4 v3, 0x0
+    invoke-static {p2, p3}, Lcom/smartisanos/launcher/data/TabletLayout;->resizedSceneContext(II)Landroid/content/Context;
+    move-result-object v0
+    if-eqz v0, :tablet_size_ready
+    invoke-static {v0}, Lcom/smartisanos/launcher/data/Constants;->resizeTabletLayout(Landroid/content/Context;)V
+    const/4 v3, 0x1
+    :tablet_size_ready
 
     .line 1
     sget-boolean p1, Lcom/smartisanos/launcher/va;->DBG:Z
@@ -460,6 +469,19 @@
     invoke-static {p1}, Lcom/smartisanos/launcher/gesture/LauncherHomeCompat;->onSceneCreate(Ljava/lang/Object;)V
 
     invoke-virtual {p1, v0, p0}, Lcom/smartisanos/launcher/view/Eb;->create(II)V
+
+    if-eqz v3, :cond_4
+    invoke-virtual {p1}, Lcom/smartisanos/launcher/view/Eb;->Gh()Lcom/smartisanos/launcher/view/b/fa;
+    move-result-object v0
+    if-eqz v0, :cond_4
+    invoke-static {}, Lcom/smartisanos/smengine/Ra;->getInstance()Lcom/smartisanos/smengine/Ra;
+    move-result-object v0
+    invoke-virtual {v0}, Lcom/smartisanos/smengine/Ra;->jt()Lcom/smartisanos/smengine/Q;
+    move-result-object v0
+    invoke-virtual {v0}, Lcom/smartisanos/smengine/Q;->getRootNode()Lcom/smartisanos/smengine/SceneNode;
+    move-result-object v0
+    invoke-virtual {v0}, Lcom/smartisanos/smengine/SceneNode;->removeAllChildren()V
+    invoke-virtual {p1}, Lcom/smartisanos/launcher/view/Eb;->rebuildTabletPages()V
 
     :cond_4
     const/4 p0, 0x1

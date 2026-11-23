@@ -2492,6 +2492,7 @@ public final class MaintainedLauncherSettingsHost {
             } else {
                 activity.startActivity(intent);
             }
+            if (!entry.isPinnedShortcut()) com.smartisanos.launcher.quickdesktop.TabletHome.record(activity,intent,entry.userId);
             if (finishOnSuccess) activity.finish();
             return true;
         } catch (Throwable t) {
@@ -6047,8 +6048,12 @@ public final class MaintainedLauncherSettingsHost {
         }
         grid12.setTitleText(getString(resources, "grid_12_title", "十二宫格"));
         grid20.setTitleText(getString(resources, "grid_20_title", "二十宫格"));
-        grid12.setPreviewResource(drawable(resources, "grids_9_preview_normal"));
-        grid20.setPreviewResource(drawable(resources, "grids_16_preview_normal"));
+        if (com.smartisanos.launcher.data.TabletLayout.isTablet(activity.getResources().getConfiguration())) {
+            com.smartisanos.launcher.quickdesktop.TabletHome.bindSettings(activity, grid12, grid20);
+        } else {
+            grid12.setPreviewResource(drawable(resources, "grids_9_preview_normal"));
+            grid20.setPreviewResource(drawable(resources, "grids_16_preview_normal"));
+        }
         updateGridChecks(activity, grid12, grid20);
         grid12.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {

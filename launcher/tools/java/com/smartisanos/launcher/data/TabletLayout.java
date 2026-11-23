@@ -4,21 +4,15 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
-
-import com.smartisanos.launcher.reload.LauncherColdReloadCoordinator;
 
 /** Selects the layout for the HOME activity. Workspace slots remain in the same database. */
 public final class TabletLayout {
     private static final int TABLET_WIDTH_DP = 600;
-    private static final Handler MAIN = new Handler(Looper.getMainLooper());
-    private static Activity resumedHome;
+    private static volatile Context sceneContext;
     private static volatile boolean tabletScene;
     private static int bottomInset;
     private static int sceneOrientation;
-    private static boolean reloadStarted;
 
     private TabletLayout() {}
 
@@ -36,6 +30,7 @@ public final class TabletLayout {
 
     public static void recordScene(Context context) {
         Configuration config = context.getResources().getConfiguration();
+        sceneContext = context.getApplicationContext();
         tabletScene = isTablet(config);
         sceneOrientation = config.orientation;
         bottomInset = 0;
@@ -59,7 +54,22 @@ public final class TabletLayout {
         }
     }
 
-    static int bottomInset() {
+    public static float density() {
+        Context context = sceneContext;
+        return context == null ? 1f : context.getResources().getDisplayMetrics().density;
+    }
+
+    public static float dockPitch(float width, int pinned) {
+        int recent = width / density() >= 820 ? 3 : 2;
+        return Math.min(96 * density(), width / (Math.max(1, pinned) + recent + 1f));
+    }
+
+    public static float dockLeft(float width, int pinned) {
+        int recent = width / density() >= 820 ? 3 : 2;
+        return (width - (pinned + recent + 0.5f) * dockPitch(width, pinned)) / 2f;
+    }
+
+    public static int bottomInset() {
         return bottomInset;
     }
 
@@ -67,36 +77,16 @@ public final class TabletLayout {
         return tabletScene;
     }
 
-    private static final Runnable CHECK_SCENE = new Runnable() {
-        @Override public void run() {
-            Activity home = resumedHome;
-            if (home == null || home.isFinishing() || home.isDestroyed() || reloadStarted) return;
-            Configuration config = home.getResources().getConfiguration();
-            if (!isTablet(config) || sceneOrientation == Configuration.ORIENTATION_UNDEFINED
-                    || sceneOrientation == config.orientation) return;
-            // The original engine caches both GL nodes and hit targets for the entire process.
-            reloadStarted = LauncherColdReloadCoordinator.beginTabletRotation(home);
-            if (!reloadStarted) MAIN.postDelayed(this, 500);
-        }
-    };
-
-    public static void onHomeResumed(Activity activity) {
-        resumedHome = activity;
-        onConfigurationChanged(activity);
+    public static Context resizedSceneContext(int width, int height) {
+        if (!tabletScene || width <= 0 || height <= 0) return null;
+        int orientation = width > height ? Configuration.ORIENTATION_LANDSCAPE : Configuration.ORIENTATION_PORTRAIT;
+        Context context = sceneContext;
+        if (context == null || orientation == sceneOrientation
+                || orientation != context.getResources().getConfiguration().orientation) return null;
+        return context;
     }
 
     public static void onConfigurationChanged(Activity activity) {
         applyOrientation(activity);
-        if (activity == resumedHome) {
-            MAIN.removeCallbacks(CHECK_SCENE);
-            MAIN.postDelayed(CHECK_SCENE, 250);
-        }
-    }
-
-    public static void onHomePaused(Activity activity) {
-        if (activity == resumedHome) {
-            resumedHome = null;
-            MAIN.removeCallbacks(CHECK_SCENE);
-        }
     }
 }

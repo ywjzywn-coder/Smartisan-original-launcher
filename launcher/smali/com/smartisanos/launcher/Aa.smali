@@ -3340,6 +3340,13 @@
 
     .line 10
     :cond_4
+    if-gtz p1, :dense_items
+    invoke-static {p0}, Lcom/smartisanos/launcher/backup/TabletSlots;->keepCellIndices(I)Z
+    move-result v1
+    if-eqz v1, :dense_items
+    invoke-static {v0}, Ljava/util/Collections;->sort(Ljava/util/List;)V
+    return-object v0
+    :dense_items
     invoke-virtual {v0}, Ljava/util/ArrayList;->size()I
 
     move-result v1

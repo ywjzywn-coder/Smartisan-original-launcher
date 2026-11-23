@@ -1593,7 +1593,10 @@ public final class LauncherSettingBridge {
                 float sy = geometryFloat(target, height) / geometryFloat(source, height);
                 if (sx <= 0f || sy <= 0f) return;
                 factor = sx / sy;
-                if (dock) size = 1.15f;
+                if (com.smartisanos.launcher.data.TabletLayout.supportsLandscapeSurface()) {
+                    // Fit square artwork inside the shorter axis of an overview cell.
+                    size = Math.min(1f, sy / sx) * .90f;
+                } else if (dock) size = 1.15f;
             }
             Object[] nodes = (Object[]) readGeometryField(cell, "sc");
             // sc[27] derives its scale and offset directly from sc[0] in g.smali.

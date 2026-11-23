@@ -481,6 +481,18 @@
 
     .line 2
     :cond_0
+    const/4 v0, 0x0
+    invoke-interface {p0, v0}, Ljava/util/List;->get(I)Ljava/lang/Object;
+    move-result-object v0
+    check-cast v0, Lcom/smartisanos/launcher/data/ItemInfo;
+    iget v1, v0, Lcom/smartisanos/launcher/data/ItemInfo;->folderIndex:I
+    if-gtz v1, :normal_compaction
+    iget v0, v0, Lcom/smartisanos/launcher/data/ItemInfo;->pageIndex:I
+    invoke-static {v0}, Lcom/smartisanos/launcher/backup/TabletSlots;->keepCellIndices(I)Z
+    move-result v0
+    if-eqz v0, :normal_compaction
+    return-void
+    :normal_compaction
     invoke-interface {p0}, Ljava/util/List;->size()I
 
     move-result v0
@@ -10791,6 +10803,8 @@
     .line 11
     :cond_3
     :goto_0
+    invoke-static {v0, v5}, Lcom/smartisanos/launcher/backup/TabletSlots;->prepare(Landroid/content/Context;Z)V
+
     invoke-static {}, Lcom/smartisanos/launcher/data/A;->Ow()V
 
     .line 12

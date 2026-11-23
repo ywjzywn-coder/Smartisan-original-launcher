@@ -7663,6 +7663,18 @@
     return-void
 .end method
 
+.method public static resizeTabletLayout(Landroid/content/Context;)V
+    .locals 1
+    const/4 v0, 0x0
+    sput-object v0, Lcom/smartisanos/launcher/data/Constants;->pageCellSizeScale:[Lcom/smartisanos/smengine/a/i;
+    sput-object v0, Lcom/smartisanos/launcher/data/Constants;->pageCellAllCenterPoints:[[Lcom/smartisanos/smengine/a/j;
+    sput-object v0, Lcom/smartisanos/launcher/data/Constants;->pageSizeScale:[Lcom/smartisanos/smengine/a/i;
+    sput-object v0, Lcom/smartisanos/launcher/data/Constants;->pageWorldCenterPointsInWindow:[[Lcom/smartisanos/smengine/a/j;
+    sput-object v0, Lcom/smartisanos/launcher/data/Constants;->cellWorldCenterPointsInWindow:[[Lcom/smartisanos/smengine/a/j;
+    invoke-static {p0}, Lcom/smartisanos/launcher/data/Constants;->initLayoutParams(Landroid/content/Context;)V
+    return-void
+.end method
+
 .method public static initLayoutParams(Landroid/content/Context;)V
     .locals 9
 

@@ -33,7 +33,7 @@
 .end method
 
 .method private static I(Ljava/util/List;)V
-    .locals 11
+    .locals 12
 
     .line 1
     invoke-static {}, Lcom/smartisanos/launcher/yb;->getInstance()Lcom/smartisanos/launcher/yb;
@@ -87,6 +87,7 @@
 
     if-nez v6, :cond_9
 
+    iget v11, v5, Lcom/smartisanos/launcher/view/b/M;->pageIndex:I
     .line 6
     invoke-virtual {v5}, Lcom/smartisanos/launcher/view/b/M;->pn()Ljava/util/ArrayList;
 
@@ -232,6 +233,15 @@
 
     move-result v6
 
+    invoke-static {v11}, Lcom/smartisanos/launcher/backup/TabletSlots;->keepCellIndices(I)Z
+    move-result v8
+    if-eqz v8, :dense_page
+    invoke-static {v7, v6}, Lcom/smartisanos/launcher/backup/TabletSlots;->validSortedSlots([II)Z
+    move-result v8
+    if-nez v8, :cond_9
+    goto :goto_5
+
+    :dense_page
     .line 23
     array-length v8, v7
 

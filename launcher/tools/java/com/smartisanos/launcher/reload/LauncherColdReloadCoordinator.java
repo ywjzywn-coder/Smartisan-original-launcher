@@ -44,8 +44,8 @@ public final class LauncherColdReloadCoordinator {
     private LauncherColdReloadCoordinator() {
     }
 
-    public static boolean beginTabletRotation(Context context) {
-        return beginReload(context, "TABLET_ROTATION", -1, readThemeMode(context));
+    public static boolean beginTabletTilesReload(Context context) {
+        return beginReload(context, "TABLET_HOME_TILES", -1, readThemeMode(context));
     }
 
     public static boolean beginGridReload(Context context, int gridMode) {
