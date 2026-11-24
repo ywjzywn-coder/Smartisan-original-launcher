@@ -34,6 +34,13 @@ final class TabletTile extends View {
     private String skyArt;
     private Bitmap face, hourHand, minuteHand, hub, musicCover, musicIcon, paperPad, bindings, dateArt;
     private int displayedDay;
+    private final TabletInstrumentArt instruments = new TabletInstrumentArt();
+    private boolean charging;
+    private int weatherCode = -1;
+    private String weatherCity = "天气", condition = "", updated = "", feelsLike = "";
+    private final android.content.BroadcastReceiver batteryListener = new android.content.BroadcastReceiver() {
+        @Override public void onReceive(Context context,Intent intent) { readBattery(intent); invalidate(); }
+    };
     private static final String TEXTURES = "Textures/1080p/";
 
     private Bitmap asset(String path) {
@@ -56,12 +63,7 @@ final class TabletTile extends View {
             if (kind == MUSIC) refreshMedia();
             if (kind == BATTERY) refreshBattery();
             if (kind == STORAGE) refreshStorage();
-            if (kind == WEATHER) {
-                forecast=WeatherBridge.getTabletForecast(getContext());
-                String code=forecast==null?"99":forecast.getString("weatherCode","99");
-                String art=forecast==null?"cloudy":weatherArt(code);
-                if(!art.equals(skyArt)){sky=asset(TEXTURES+"weather/"+art+".png");skyArt=art;}
-            }
+            if (kind == WEATHER) refreshWeather();
             if (kind == CALENDAR) {
                 int day=Calendar.getInstance().get(Calendar.DAY_OF_MONTH);
                 if (day!=displayedDay) {
@@ -146,11 +148,16 @@ final class TabletTile extends View {
     private void refreshBattery() {
         Context context = getContext();
         Intent battery = context.registerReceiver(null, new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        readBattery(battery);
+    }
+
+    private void readBattery(Intent battery) {
         int level = battery == null ? -1 : battery.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL,-1);
         int scale = battery == null ? 0 : battery.getIntExtra(android.os.BatteryManager.EXTRA_SCALE,0);
         fraction = level < 0 || scale <= 0 ? 0f : Math.min(1f,level/(float)scale);
         reading = level < 0 || scale <= 0 ? "—" : Math.round(fraction*100)+"%";
         int status = battery == null ? 0 : battery.getIntExtra(android.os.BatteryManager.EXTRA_STATUS,0);
+        charging = status == android.os.BatteryManager.BATTERY_STATUS_CHARGING && fraction<1f && level>=0;
         detail = status == android.os.BatteryManager.BATTERY_STATUS_FULL ? "已充满"
                 : status == android.os.BatteryManager.BATTERY_STATUS_CHARGING ? "正在充电" : "剩余电量";
         setContentDescription(TabletTileLibrary.NAMES[kind] + "，" + reading + "，" + detail);
@@ -192,8 +199,17 @@ final class TabletTile extends View {
         super.onVisibilityChanged(changed,visible);
         if (refresh != null) refresh.run();
     }
-    @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); post(refresh); }
-    @Override protected void onDetachedFromWindow() { removeCallbacks(refresh); super.onDetachedFromWindow(); }
+    @Override protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if(kind==BATTERY) getContext().registerReceiver(batteryListener,new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        post(refresh);
+    }
+    @Override protected void onDetachedFromWindow() {
+        if(kind==BATTERY) getContext().unregisterReceiver(batteryListener);
+        removeCallbacks(refresh);
+        instruments.release();
+        super.onDetachedFromWindow();
+    }
 
     private void text(Canvas c,String value,float x,float baseline,float size,int color,boolean bold,Paint.Align align) {
         paint.setTypeface(bold ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
@@ -206,25 +222,47 @@ final class TabletTile extends View {
         if (w<=0 || h<=0) return;
         boolean paper=kind==CALENDAR;
         c.drawColor(paper ? 0xfffafafa : 0xff393e43);
-        Calendar now=Calendar.getInstance();
-        if (paper) calendar(c,w,h,now);
-        else if (kind==CLOCK) clock(c,w,h,now);
+        if (paper) calendar(c,w,h,Calendar.getInstance());
+        else if (kind==CLOCK) clock(c,w,h,Calendar.getInstance());
         else if (kind==MUSIC) music(c,w,h);
         else if (kind==WEATHER) weather(c,w,h);
-        else meter(c,w,h);
+        else if(kind==BATTERY) battery(c,w,h);
+        else drive(c,w,h);
     }
 
-    private void meter(Canvas c,float w,float h) {
-        float pad=Math.min(Math.min(w,h)*.12f,20*density);
-        float labelSize=Math.min(14*density,Math.min(w*.09f,h*.12f));
-        float valueSize=Math.min(44*density,Math.min(w*.20f,h*.34f));
-        text(c,TabletTileLibrary.NAMES[kind],pad,pad+labelSize,labelSize,0xffd4d7d9,false,Paint.Align.LEFT);
-        text(c,fit(reading,w-2*pad,valueSize,true),pad,h*.58f,valueSize,0xfff5f3ef,true,Paint.Align.LEFT);
-        text(c,fit(detail,w-2*pad,labelSize,false),pad,h*.77f,labelSize,0xffd4d7d9,false,Paint.Align.LEFT);
-        float y=h-pad, thickness=Math.max(2*density,h*.022f);
-        paint.setColor(0xff25292c); c.drawRoundRect(pad,y,w-pad,y+thickness,thickness,thickness,paint);
-        paint.setColor(kind==BATTERY?0xff91b995:0xff8faac3);
-        c.drawRoundRect(pad,y,pad+(w-2*pad)*fraction,y+thickness,thickness,thickness,paint);
+    private void battery(Canvas c,float w,float h) {
+        float u=Math.min(w,h);
+        instruments.draw(c,getWidth(),getHeight(),kind,Math.round(fraction*100));
+        if(charging && hasWindowFocus() && isShown() && (android.os.Build.VERSION.SDK_INT<26
+                || android.animation.ValueAnimator.areAnimatorsEnabled())) {
+            instruments.chargingGlint(c,w,h,fraction,android.os.SystemClock.uptimeMillis());
+            postInvalidateDelayed(100);
+        }
+        float value=Math.min(40*density,u*.23f), caption=Math.min(14*density,u*.085f);
+        paint.setShadowLayer(Math.max(1,density*1.5f),0,density,0xd8000000);
+        text(c,reading,w*.50f,h*.51f,value,0xfffafbf5,true,Paint.Align.CENTER);
+        text(c,detail,w*.50f,h*.51f+caption*1.7f,caption,0xffe4e8e0,false,Paint.Align.CENTER);
+        paint.clearShadowLayer();
+    }
+
+    private void drive(Canvas c,float w,float h) {
+        instruments.draw(c,getWidth(),getHeight(),kind,0);
+        boolean wide=w>h;
+        float u=Math.min(w,h), left=(wide?w*.465f:u*.086f)+u*.046f;
+        float right=w-u*.128f,room=right-left;
+        float top=wide?h*.113f:h*.54f,bottom=h-u*.108f,panel=bottom-top;
+        float small=Math.min(15*density,Math.min(room*.13f,panel*.135f));
+        text(c,"可用空间",left,top+panel*.22f,small,0xff535952,true,Paint.Align.LEFT);
+        float size=Math.min(47*density,Math.min(room*.245f,panel*.35f));
+        text(c,fit(reading,room,size,true),left,top+panel*.60f,size,0xff252b29,true,Paint.Align.LEFT);
+        String capacity=detail.replace("可用空间 · ","").replace("数据分区可用 · ","数据分区");
+        text(c,fit(capacity,room,small,false),left,top+panel*.81f,small,0xff555b54,false,Paint.Align.LEFT);
+        float pitch=room/20f;
+        int used=Math.round(fraction*20);
+        for(int i=0;i<20;i++) {
+            paint.setColor(i<used?0xff596b6c:0xffb9bcb2);
+            c.drawRect(left+i*pitch,top+panel*.895f,left+(i+.83f)*pitch,top+panel*.93f,paint);
+        }
     }
 
     private void calendar(Canvas c,float w,float h,Calendar now) {
@@ -299,20 +337,46 @@ final class TabletTile extends View {
         }
     }
 
+    private void refreshWeather() {
+        forecast=WeatherBridge.getTabletForecast(getContext());
+        String code=forecast==null?"99":forecast.getString("weatherCode","99");
+        try {weatherCode=Integer.parseInt(code);} catch(NumberFormatException invalid) {weatherCode=99;}
+        String art=weatherArt(code);
+        if(!art.equals(skyArt)) {sky=asset(TEXTURES+"weather/"+art+".png");skyArt=art;}
+        weatherCity=forecast==null?"天气":forecast.getString("city","");
+        if(weatherCity.isEmpty()) weatherCity="天气";
+        condition=forecast==null?"选择城市或更新天气":QuickDesktopContentView.weatherDescription(code);
+        String feels=forecast==null?"":forecast.getString("feelsLike","");
+        feelsLike=feels.isEmpty()?"":"体感 "+feels+"°";
+        long stamp=forecast==null?0:forecast.getLong("updatedAt",0);
+        updated="";
+        if(stamp>0){
+            Context ctx=getContext();
+            int flags=android.text.format.DateUtils.FORMAT_SHOW_TIME;
+            if(!android.text.format.DateUtils.isToday(stamp)) flags|=android.text.format.DateUtils.FORMAT_SHOW_DATE;
+            updated=android.text.format.DateUtils.formatDateTime(ctx,stamp,flags)+" 更新";
+        }
+        String temperature=forecast==null?"":forecast.getString("temp","")+"°";
+        setContentDescription("天气，"+weatherCity+"，"+condition+"，"+temperature+" "+feelsLike);
+    }
+
     private void weather(Canvas c,float w,float h){
-        float pad=Math.min(22*density,Math.min(w,h)*.12f);
-        float base= Math.min(52*density, Math.min(w*.27f,h*.40f));
-        float cy=h*.53f;
-        String temp=forecast==null?"—":forecast.getString("temp","—");
-        text(c,temp,pad,cy,base,Color.WHITE,false,Paint.Align.LEFT);
-        float unitX=pad+paint.measureText(temp)+3*density;
-        text(c,"°C",unitX,cy-base*.45f,base*.30f,0xffe8e9eb,false,Paint.Align.LEFT);
-        String caption=forecast==null?"选择城市或更新天气":QuickDesktopContentView.weatherDescription(
-                forecast.getString("weatherCode","99"))+"  |  "+forecast.getString("city","");
-        float size=Math.min(15*density,w*.08f);
-        text(c,fit(caption,w-2*pad,size,false),pad,cy+size*1.65f,size,0xffe0e1e2,false,Paint.Align.LEFT);
-        float side=Math.min(62*density,Math.min(w*.22f,h*.29f));
-        artwork(c,sky,w-pad-side,Math.min(pad,h*.08f),side,side);
+        instruments.draw(c,getWidth(),getHeight(),kind,weatherCode);
+        float u=Math.min(w,h),pad=Math.min(23*density,u*.11f);
+        float label=Math.min(17*density,u*.095f),small=Math.min(13*density,u*.075f);
+        float size=Math.min(62*density,Math.min(h*.32f,w*.29f));
+        float icon=Math.min(56*density,u*.27f);
+        float cityWidth=w-2*pad;
+        String city=fit(weatherCity,cityWidth,label,true);
+        paint.setShadowLayer(Math.max(1,density),0,density*.6f,0x66314969);
+        text(c,city,pad,pad+label*.83f,label,Color.WHITE,true,Paint.Align.LEFT);
+        text(c,fit(updated,cityWidth,small,false),pad,pad+label*.83f+small*1.48f,small,0xffedf5ff,false,Paint.Align.LEFT);
+        String temp=forecast==null?"—":forecast.getString("temp","—")+"°";
+        text(c,temp,pad,h*.69f,size,Color.WHITE,true,Paint.Align.LEFT);
+        String summary=feelsLike.isEmpty()?condition:condition+"  ·  "+feelsLike;
+        text(c,fit(summary,w-2*pad,label,false),pad,h-pad*.94f,label,Color.WHITE,false,Paint.Align.LEFT);
+        paint.clearShadowLayer();
+        if(forecast!=null) artwork(c,sky,w-pad-icon,h*.55f-icon*.48f,icon,icon);
     }
 
     private String fit(String value,float width,float size,boolean bold) {

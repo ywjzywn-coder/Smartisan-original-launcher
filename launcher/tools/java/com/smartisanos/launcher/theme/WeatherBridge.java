@@ -112,7 +112,13 @@ public final class WeatherBridge {
 
     public static Bundle getTabletForecast(Context context) {
         scheduleRefresh(context,false);
-        return readBundle(context);
+        Bundle result = readBundle(context);
+        if (result != null) {
+            SharedPreferences state = prefs(context);
+            result.putString("feelsLike", state.getString("temperature_apparent_c", ""));
+            result.putLong("updatedAt", state.getLong("weather_updated_at", 0L));
+        }
+        return result;
     }
 
     private static boolean weatherInUse(Context context) {
