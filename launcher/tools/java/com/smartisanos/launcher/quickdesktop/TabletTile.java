@@ -237,6 +237,10 @@ final class TabletTile extends View {
     @Override protected void onDraw(Canvas c) {
         float w=getWidth(), h=getHeight();
         if (w<=0 || h<=0) return;
+        if (kind==BATTERY) {
+            battery(c,w,h);
+            return;
+        }
         boolean paper=kind==CALENDAR;
         c.drawColor(paper ? 0xfffafafa : 0xff393e43);
         if (paper) calendar(c,w,h,Calendar.getInstance());
@@ -244,7 +248,6 @@ final class TabletTile extends View {
         else if (kind==MUSIC) music(c,w,h);
         else if (kind==WEATHER) weather(c,w,h);
         else if (kind==PHOTO) drawFrame(c,w,h);
-        else if(kind==BATTERY) battery(c,w,h);
         else drive(c,w,h);
     }
 

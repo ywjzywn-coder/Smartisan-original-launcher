@@ -7,6 +7,7 @@ import java.util.Random;
 final class TabletInstrumentArt {
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
     private Bitmap layer;
+    private final RectF batteryCore = new RectF();
     private int lastKind, lastKey;
 
     void draw(Canvas out,int w,int h,int kind,int key) {
@@ -41,38 +42,59 @@ final class TabletInstrumentArt {
     private static void batterySpace(Canvas c,float w,float h) {
         if(w>h) {c.translate(w,0);c.rotate(90);}
     }
-    private void battery(Canvas c,float w,float h,int percent) {
-        c.drawColor(0xff0b0c0d);
-        c.save();batterySpace(c,w,h);
-        float d=Math.min(w,h), length=Math.max(w,h);
-        float left=d*.095f,right=d*.905f,top=length*.087f,bottom=length*.946f;
-        float rim=Math.min(d*.034f,length*.026f);
-        grad(d*.35f,0,d*.65f,0,0xff151619,0xff747577,0xff3b3c3e,0xff111214);
-        c.drawRoundRect(d*.35f,top-rim*1.35f,d*.65f,top+rim,rim*.35f,rim*.35f,p);
-        grad(left,0,right,0,0xff0c0e0e,0xff414447,0xff141616,0xff999a98,0xff313434,0xff55585a,0xff121314);
-        c.drawRoundRect(left,top,right,bottom,rim*.42f,rim*.42f,p);
-        float l=left+rim*.55f,r=right-rim*.55f,t=top+rim,b=bottom-rim;
-        grad(l,0,r,0,0xff0b0c0c,0xff1e2221,0xff141616,0xff555956,0xff242725,0xff101311,0xff252826);
-        c.drawRect(l,t,r,b,p);
-        float line=b-(b-t)*Math.max(0,percent)/100f;
-        grad(l,0,r,0,0xff12300e,0xff25631c,0xff347e23,0xff74b54c,0xff418c2d,0xff214e19,0xff112b0c);
-        c.drawRect(l,line,r,b,p);
-        float pitch=Math.max(2f,d*.0105f);
-        for(float y=b-pitch;y>t;y-=pitch) {
-            solid(0x56000000);c.drawRect(l,y,r,y+pitch*.30f,p);
+    // All battery geometry is in upright coordinates. Only the terminal projects
+    // past the top cap, leaving the underlying desktop visible at its shoulders.
+    private void setBatteryCore(float width, float height) {
+        float diameter = Math.min(width, height);
+        float length = Math.max(width, height);
+        float cap = diameter * .045f;
+        float terminal = diameter * .035f;
+        batteryCore.set(0, terminal + cap, diameter, length - cap);
+    }
+
+    private void battery(Canvas c, float w, float h, int percent) {
+        c.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+        c.save();
+        batterySpace(c, w, h);
+        setBatteryCore(w, h);
+        float diameter = batteryCore.width();
+        float length = Math.max(w, h);
+        float terminal = diameter * .035f;
+        float radius = diameter * .024f;
+
+        grad(diameter*.34f, 0, diameter*.66f, 0, 0xff666b6a, 0xffc9cdca, 0xff979d9a, 0xff565b59);
+        c.drawRoundRect(diameter*.34f, 0, diameter*.66f, terminal + radius, radius*.5f, radius*.5f, p);
+        grad(0, 0, diameter, 0, 0xff535a58, 0xffbbc0bd, 0xff7f8783, 0xffdaddd8, 0xff828885, 0xff535957);
+        c.drawRoundRect(0, terminal, diameter, length, radius, radius, p);
+
+        grad(0, 0, diameter, 0, 0xff303735, 0xff464f4a, 0xff69716b, 0xff838b83, 0xff59605c, 0xff343d38);
+        c.drawRect(batteryCore, p);
+        float level = batteryCore.bottom - batteryCore.height() * percent / 100f;
+        grad(0, 0, diameter, 0, 0xff214a1b, 0xff337729, 0xff4b9737, 0xff84c05a, 0xff489534, 0xff306824, 0xff21471c);
+        c.drawRect(0, level, diameter, batteryCore.bottom, p);
+        float pitch = Math.max(2f, diameter * .0105f);
+        solid(0x56000000);
+        for (float y = batteryCore.bottom - pitch; y > batteryCore.top; y -= pitch) {
+            c.drawRect(0, y, diameter, y + pitch*.30f, p);
         }
-        solid(0x50ffffff);c.drawRect(l,top+rim*.18f,r,top+rim*.27f,p);
-        solid(0x99000000);c.drawRect(l,b,r,b+rim*.24f,p);
+        float seam = Math.max(1f, diameter*.004f);
+        solid(0x72ffffff);
+        c.drawRect(0, batteryCore.top - seam, diameter, batteryCore.top, p);
+        c.drawRect(0, batteryCore.bottom, diameter, batteryCore.bottom + seam, p);
         c.restore();
     }
-    void chargingGlint(Canvas c,float w,float h,float fraction,long now) {
-        c.save();batterySpace(c,w,h);
-        float d=Math.min(w,h), length=Math.max(w,h),rim=Math.min(d*.034f,length*.026f);
-        float l=d*.095f+rim*.55f,r=d*.905f-rim*.55f,t=length*.087f+rim,b=length*.946f-rim;
-        float y=b-(b-t)*fraction*((now%2400L)/2400f);
-        c.clipRect(l,b-(b-t)*fraction,r,b);
-        grad(0,y-2*rim,0,y,0x00a2f174,0x3062ae39,0x74a1e96f);
-        c.drawRect(l,y-2*rim,r,y,p);c.restore();
+
+    void chargingGlint(Canvas c, float w, float h, float fraction, long now) {
+        c.save();
+        batterySpace(c, w, h);
+        setBatteryCore(w, h);
+        float filled = batteryCore.height() * fraction;
+        float y = batteryCore.bottom - filled * ((now % 2400L) / 2400f);
+        float band = batteryCore.width() * .068f;
+        c.clipRect(0, batteryCore.bottom - filled, batteryCore.right, batteryCore.bottom);
+        grad(0, y - band, 0, y, 0x00a2f174, 0x3062ae39, 0x74a1e96f);
+        c.drawRect(0, y - band, batteryCore.right, y, p);
+        c.restore();
     }
 
     private void drive(Canvas c,float w,float h) {
