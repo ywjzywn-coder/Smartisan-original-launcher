@@ -133,7 +133,9 @@ public final class LayoutPropertyAdapter {
                         TabletLayout.dockCapacity(resources.getConfiguration()));
                 if (resourceMode == 12 || resourceMode == 20) {
                     float density = resources.getDisplayMetrics().density;
-                    float dock = 68f * density + TabletLayout.bottomInset();
+                    float shortEdgeDp = Math.min(width, height) / density;
+                    float shelfHeightDp = Math.max(72f, Math.min(88f, shortEdgeDp * 0.105f));
+                    float dock = shelfHeightDp * density + TabletLayout.bottomInset();
                     setNumericField(property, "dock_height", dock);
                     setNumericField(property, "dock_cells_offset_y", TabletLayout.bottomInset() / 2f);
                     setNumericField(property, "dock_cells_offset_y_without_app_name", TabletLayout.bottomInset() / 2f);
