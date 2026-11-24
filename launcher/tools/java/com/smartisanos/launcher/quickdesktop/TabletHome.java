@@ -28,7 +28,6 @@ public final class TabletHome extends FrameLayout {
     private final TabletTile[] tiles = new TabletTile[TabletSlots.KINDS];
     private int positions;
     private final LinearLayout recent;
-    private final Paint shelfPaint = new Paint();
     private final Runnable render = new Runnable() { public void run() { arrange(); } };
     private volatile Geometry state;
     private int recentGeneration;
@@ -55,7 +54,6 @@ public final class TabletHome extends FrameLayout {
     }
     private TabletHome(Context context) {
         super(context);
-        setWillNotDraw(false);
         prefs=context.getSharedPreferences(TabletSlots.PREF,0);
         positions=TabletSlots.positions(prefs);
         for(int k=0;k<tiles.length;k++){
@@ -123,19 +121,6 @@ public final class TabletHome extends FrameLayout {
     }
 
     private int dp(float value) {return Math.round(value*getResources().getDisplayMetrics().density);}
-    @Override protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-        Geometry g=state;
-        if (g==null) return;
-        float top=getHeight()-g.dock, bottom=getHeight()-TabletLayout.bottomInset();
-        float edge=Math.max(1,dp(.75f));
-        shelfPaint.setColor(0x990d0e10);
-        canvas.drawRect(0,top,getWidth(),top+edge,shelfPaint);
-        shelfPaint.setColor(0x406a6d70);
-        canvas.drawRect(0,top+edge,getWidth(),top+edge*2,shelfPaint);
-        shelfPaint.setColor(0x660c0d0f);
-        canvas.drawRect(0,bottom-edge,getWidth(),bottom,shelfPaint);
-    }
     private static void place(View view,float left,float top,float width,float height) {
         LayoutParams p=(LayoutParams)view.getLayoutParams();
         int x=Math.round(left), y=Math.round(top), w=Math.max(1,Math.round(width)), h=Math.max(1,Math.round(height));
@@ -152,7 +137,6 @@ public final class TabletHome extends FrameLayout {
                 || (width>height)!=(g.cols>g.rows)) {setVisibility(INVISIBLE);return;}
         boolean entering = getVisibility() != VISIBLE;
         setVisibility(VISIBLE);
-        invalidate();
         if (entering) loadRecent();
         int[] origin=new int[2]; getLocationOnScreen(origin);
         positions=TabletSlots.positions(prefs);
@@ -321,13 +305,24 @@ public final class TabletHome extends FrameLayout {
         if(!(row.getParent() instanceof LinearLayout)) return;
         LinearLayout parent=(LinearLayout)row.getParent();
         if(parent.findViewWithTag(TabletSlots.SHOW)!=null) return;
-        TextView control=new TextView(activity);
-        control.setTag(TabletSlots.SHOW);control.setTextColor(0xff4f5360);control.setTextSize(16);
-        int pad=Math.round(16*activity.getResources().getDisplayMetrics().density);
-        control.setPadding(pad,pad,pad,pad);control.setText("桌面组件　›");
-        parent.addView(control,parent.indexOfChild(row)+1);
+        Context settings=twelve.getContext();
+        android.content.res.Resources res=settings.getResources();
+        float scale=res.getDisplayMetrics().density;
+        FrameLayout control=new FrameLayout(settings);
+        control.setTag(TabletSlots.SHOW);
+        int background=res.getIdentifier("selector_setting_sub_item_bg_single","drawable","com.smartisanos.home");
+        if(background!=0)control.setBackgroundResource(background);
+        TextView title=new TextView(settings);
+        title.setText("桌面组件");title.setTextSize(18);title.setTextColor(0xff454a5c);
+        title.setGravity(Gravity.CENTER_VERTICAL|Gravity.LEFT);
+        title.setPadding(Math.round(30*scale),0,0,0);
+        control.addView(title,new FrameLayout.LayoutParams(-1,-1));
+        ImageView arrow=new ImageView(settings);
+        arrow.setImageResource(res.getIdentifier("setting_next","drawable","com.smartisanos.home"));
+        control.addView(arrow,new FrameLayout.LayoutParams(-2,-2,Gravity.RIGHT|Gravity.CENTER_VERTICAL));
+        parent.addView(control,parent.indexOfChild(row)+1,new LinearLayout.LayoutParams(-1,Math.round(64*scale)));
         control.setOnClickListener(new OnClickListener(){public void onClick(View v){
-            new TabletTileLibrary(activity).show();
+            new TabletTileLibrary(activity,twelve.getContext()).show();
         }});
     }
     private static Bitmap preview(Activity a,int count,int layout) {
@@ -336,21 +331,21 @@ public final class TabletHome extends FrameLayout {
         int w=240, h=Math.max(140,Math.min(400,Math.round(w*metrics.heightPixels/(float)metrics.widthPixels)));
         Bitmap b=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);
         Canvas c=new Canvas(b); Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
-        c.drawColor(0xff35393c);
+        c.drawColor(0xfff1f2f3);
         int cols=count==12?(land?4:3):(land?5:4);
         int rows=count/cols;float cw=w/(float)cols,ch=h*.84f/rows;
         for(int i=0;i<count;i++) {
-            int x=i%cols,y=i/cols;p.setColor(0xff44484c);c.drawRect(x*cw+1,y*ch+1,(x+1)*cw,(y+1)*ch,p);
-            float cx=(x+.5f)*cw,cy=(y+.5f)*ch,r=Math.min(cw,ch)*.15f;p.setColor(0xffbec3c4);
+            int x=i%cols,y=i/cols;p.setColor(0xffe3e4e6);c.drawRect(x*cw+1,y*ch+1,(x+1)*cw,(y+1)*ch,p);
+            float cx=(x+.5f)*cw,cy=(y+.5f)*ch,r=Math.min(cw,ch)*.15f;p.setColor(0xffc7cbd0);
             c.drawRoundRect(cx-r,cy-r,cx+r,cy+r,2,2,p);
         }
         for(int kind=0;kind<TabletSlots.KINDS;kind++){
             int slot=TabletSlots.slot(layout,kind);
             if(!TabletSlots.fits(layout,kind,slot)) continue;
             Rect r=TabletSlots.rect(count,land,kind,slot);
-            p.setColor(kind==0?0xffd9d3c8:0xff727777);
+            p.setColor(kind==0?0xfffafafa:0xffc2c8cf);
             c.drawRect(r.left*cw+1,r.top*ch+1,r.right*cw,r.bottom*ch,p);
-            if(kind==0){p.setColor(0xff8c342e);c.drawRect(r.left*cw+1,r.top*ch+1,r.right*cw,(r.top+.35f)*ch,p);}
+            if(kind==0){p.setColor(0xffdbdde0);c.drawRect(r.left*cw+1,r.top*ch+1,r.right*cw,(r.top+.35f)*ch,p);}
         }
         p.setColor(0xffa9adad);
         for(int i=0;i<5;i++) c.drawCircle(w*(.25f+i*.12f+(i>2?.035f:0)),h*.92f,Math.min(5,h*.045f),p);

@@ -29,7 +29,7 @@ final class TabletTile extends View {
     private Bundle forecast;
     private Bitmap sky;
     private String skyArt;
-    private Bitmap face, hourHand, minuteHand, hub, musicCover, paperPad, bindings, dateArt;
+    private Bitmap face, hourHand, minuteHand, hub, musicCover, musicIcon, paperPad, bindings, dateArt;
     private int displayedDay;
     private static final String TEXTURES = "Textures/1080p/";
 
@@ -107,6 +107,7 @@ final class TabletTile extends View {
             bindings=asset(TEXTURES+"calendar/ring.png");
         } else if (kind==MUSIC) {
             musicCover=asset("quickdesktop_original/music_default.png");
+            musicIcon=asset("quickdesktop_original/music_def_app_icon.png");
         }
         setContentDescription(TabletTileLibrary.NAMES[kind]);
         setOnClickListener(new OnClickListener() { public void onClick(View v) {
@@ -147,44 +148,27 @@ final class TabletTile extends View {
         float w=getWidth(), h=getHeight();
         if (w<=0 || h<=0) return;
         boolean paper=kind==CALENDAR;
-        int top=paper ? 0xfff5f1e7 : 0xff40474c, bottom=paper ? 0xffd9d4c9 : 0xff25292e;
-        paint.setColor(-1);
-        paint.setShader(new LinearGradient(0,0,0,h,top,bottom,Shader.TileMode.CLAMP));
-        c.drawRect(0,0,w,h,paint);
-        paint.setShader(null);
+        c.drawColor(paper ? 0xfffafafa : 0xff393e43);
         Calendar now=Calendar.getInstance();
         if (paper) calendar(c,w,h,now);
         else if (kind==CLOCK) clock(c,w,h,now);
         else if (kind==MUSIC) music(c,w,h);
         else weather(c,w,h);
-        paint.setColor(0x44ffffff);
-        c.drawRect(1,1,w-1,2,paint);
-        paint.setColor(0x66000000);
-        c.drawRect(0,h-2,w,h,paint);
     }
 
     private void calendar(Canvas c,float w,float h,Calendar now) {
         float header=Math.min(h*.26f,60*density), col=w/7;
-        paint.setColor(-1);
-        paint.setShader(new LinearGradient(0,0,0,header,0xff904b43,0xff632d29,Shader.TileMode.CLAMP));
+        paint.setColor(0xfff2f2f2);
         c.drawRect(0,0,w,header,paint);
-        paint.setShader(null);
-        paint.setColor(0xffb4786c); c.drawRect(0,1,w,2,paint);
-        // Leave a narrow edge of the sheets visible under the printed month.
         float edge = Math.max(1f, density);
-        for (int sheet = 1; sheet <= 3; sheet++) {
-            float y = h - sheet * 2 * edge;
-            paint.setColor(0xffbab4a7); c.drawRect(0,y,w,y+edge,paint);
-            paint.setColor(0xffebe7dc); c.drawRect(0,y+edge,w,y+2*edge,paint);
-        }
         float side=header*.92f, left=w*.045f, top=(header-side)/2;
         artwork(c,paperPad,left,top,side,side);
         artwork(c,dateArt,left+side*.22f,top+side*.34f,side*.56f,side*.43f);
         artwork(c,bindings,left,top,side,side);
         String title=android.text.format.DateFormat.format(
                 android.text.format.DateFormat.getBestDateTimePattern(Locale.getDefault(),"yyyyMMMM"),now).toString();
-        text(c,title,left+side+w*.035f,header*.60f,Math.min(header*.37f,w*.087f),0xfffaf4e9,true,Paint.Align.LEFT);
-        paint.setColor(0x66615652); c.drawRect(0,header,w,header+1,paint);
+        text(c,title,left+side+w*.035f,header*.60f,Math.min(header*.37f,w*.087f),0xff4f5360,true,Paint.Align.LEFT);
+        paint.setColor(0xffdedfe1); c.drawRect(0,header,w,header+1,paint);
         int today=now.get(Calendar.DAY_OF_MONTH), first=now.getFirstDayOfWeek();
         Calendar month=(Calendar)now.clone(); month.set(Calendar.DAY_OF_MONTH,1);
         int shift=(month.get(Calendar.DAY_OF_WEEK)-first+7)%7;
@@ -194,16 +178,16 @@ final class TabletTile extends View {
         for (int i=0;i<7;i++) {
             int weekday=(first-1+i)%7+1;
             text(c,days[weekday],(i+.5f)*col,header+.65f*step,
-                    Math.min(12*density,step*.56f),0xff796f66,false,Paint.Align.CENTER);
+                    Math.min(12*density,step*.56f),0xff777b82,false,Paint.Align.CENTER);
         }
         for (int day=1;day<=month.getActualMaximum(Calendar.DAY_OF_MONTH);day++) {
             int index=shift+day-1;
             float x=(index%7+.5f)*col, y=header+(1.5f+index/7)*step;
             if (day==today) {
-                paint.setColor(0xff933d36); c.drawCircle(x,y,Math.min(col,step)*.43f,paint);
+                paint.setColor(0xffc26356); c.drawCircle(x,y,Math.min(col,step)*.43f,paint);
             }
             float size=Math.min(17*density,step*.68f);
-            text(c,String.valueOf(day),x,y+size*.34f,size,day==today ? -1 : 0xff393633,
+            text(c,String.valueOf(day),x,y+size*.34f,size,day==today ? -1 : 0xff444850,
                     day==today,Paint.Align.CENTER);
         }
     }
@@ -245,41 +229,59 @@ final class TabletTile extends View {
     }
 
     private void weather(Canvas c,float w,float h){
-        boolean wide=w>=h;
-        float side=Math.min(Math.min(w,h)*.64f,108*density);
-        float x=wide?w*.25f:w*.5f,y=wide?h*.5f:h*.34f;
-        artwork(c,sky,x-side/2,y-side/2,side,side);
-        float tx=wide?w*.68f:w*.5f,ty=wide?h*.50f:h*.72f;
-        String temp=forecast==null?"天气":forecast.getString("temp","—")+"°";
-        String caption=forecast==null?"选择城市或更新天气":forecast.getString("city","")+"  "+
-                QuickDesktopContentView.weatherDescription(forecast.getString("weatherCode","99"));
-        text(c,temp,tx,ty,Math.min(32*density,w*.15f),0xfff8f3e9,false,Paint.Align.CENTER);
-        float size=Math.min(14*density,w*.072f);
+        float pad=Math.min(22*density,Math.min(w,h)*.12f);
+        float base= Math.min(52*density, Math.min(w*.27f,h*.40f));
+        float cy=h*.53f;
+        String temp=forecast==null?"—":forecast.getString("temp","—");
+        text(c,temp,pad,cy,base,Color.WHITE,false,Paint.Align.LEFT);
+        float unitX=pad+paint.measureText(temp)+3*density;
+        text(c,"°C",unitX,cy-base*.45f,base*.30f,0xffe8e9eb,false,Paint.Align.LEFT);
+        String caption=forecast==null?"选择城市或更新天气":QuickDesktopContentView.weatherDescription(
+                forecast.getString("weatherCode","99"))+"  |  "+forecast.getString("city","");
+        float size=Math.min(15*density,w*.08f);
+        text(c,fit(caption,w-2*pad,size,false),pad,cy+size*1.65f,size,0xffe0e1e2,false,Paint.Align.LEFT);
+        float side=Math.min(62*density,Math.min(w*.22f,h*.29f));
+        artwork(c,sky,w-pad-side,Math.min(pad,h*.08f),side,side);
+    }
+
+    private String fit(String value,float width,float size,boolean bold) {
+        paint.setTypeface(bold?Typeface.DEFAULT_BOLD:Typeface.DEFAULT);
         paint.setTextSize(size);
-        int end=paint.breakText(caption,true,w*(wide?.55f:.94f),null);
-        text(c,caption.substring(0,end),tx,ty+size*1.45f,size,0xffd7d7cf,false,Paint.Align.CENTER);
+        if(paint.measureText(value)<=width)return value;
+        int n=paint.breakText(value,true,Math.max(0,width-paint.measureText("…")),null);
+        return value.substring(0,n)+"…";
     }
 
     private void music(Canvas c,float w,float h) {
-        boolean wide=w>=h;
-        float r=Math.min(w,h)*.29f, x=wide?w*.24f:w*.5f, y=wide?h*.5f:h*.34f;
-        Bitmap cover=track!=null && track.artwork!=null ? track.artwork : musicCover;
+        boolean active=track!=null && track.sessionAvailable;
+        Bitmap cover=active && track.artwork!=null ? track.artwork : musicCover;
         if(cover!=null){
-            int side=Math.min(cover.getWidth(),cover.getHeight());
-            int left=(cover.getWidth()-side)/2,top=(cover.getHeight()-side)/2;
+            float scale=Math.max(w/cover.getWidth(),h/cover.getHeight());
+            float sw=w/scale,sh=h/scale;
+            int left=Math.round((cover.getWidth()-sw)/2),top=Math.round((cover.getHeight()-sh)/2);
+            Rect source=new Rect(left,top,cover.getWidth()-left,cover.getHeight()-top);
             paint.setColor(-1);paint.setFilterBitmap(true);
-            c.drawBitmap(cover,new Rect(left,top,left+side,top+side),new RectF(x-r,y-r,x+r,y+r),paint);
+            c.drawBitmap(cover,source,new RectF(0,0,w,h),paint);
         }
-        float tx=wide?w*.68f:w*.50f, ty=wide?h*.48f:h*.72f;
-        String title=track!=null && track.sessionAvailable ? track.title : "音乐";
-        float size=Math.min(19*density,w*.09f);
-        paint.setTextSize(size); paint.setTypeface(Typeface.DEFAULT_BOLD);
-        int n=paint.breakText(title,true,w*(wide?.54f:.90f),null);
-        text(c,title.substring(0,n),tx,ty,size,0xfff6f2ec,true,Paint.Align.CENTER);
-        String sub=track!=null && track.sessionAvailable ? (track.playing?"Ⅱ  ":"▶  ")+track.artist
-                : track!=null && !track.notificationAccess?"授权显示正在播放":"打开音乐";
-        paint.setTextSize(size*.7f);
-        n=paint.breakText(sub,true,w*(wide?.53f:.9f),null);
-        text(c,sub.substring(0,n),tx,ty+size*1.15f,size*.7f,0xffc3c4c1,false,Paint.Align.CENTER);
+        if(active && track.artwork!=null) c.drawColor(0x66000000);
+        float pad=Math.min(17*density,Math.min(w,h)*.09f);
+        float icon=Math.min(35*density,Math.min(w,h)*.20f);
+        artwork(c,musicIcon,pad*.55f,pad*.55f,icon,icon);
+        float radius=Math.min(22*density,Math.min(w*.105f,h*.15f));
+        float x=w-pad-radius,y=h-pad-radius;
+        float titleSize=Math.min(21*density,Math.min(w*.11f,h*.14f));
+        float subSize=titleSize*.70f;
+        float room=Math.max(1,x-radius-2*pad);
+        String title=active ? track.title : "Smartisan 音乐";
+        String sub=active ? track.artist : track!=null && !track.notificationAccess ? "授权显示正在播放" : "打开音乐";
+        text(c,fit(title,room,titleSize,true),pad,h-pad-subSize*1.50f,titleSize,-1,true,Paint.Align.LEFT);
+        text(c,fit(sub,room,subSize,false),pad,h-pad,subSize,0xffd4d4d5,false,Paint.Align.LEFT);
+        c.save();
+        c.translate(x,y);
+        c.scale(radius/25f,radius/25f);
+        QuickDesktopContentView.drawPlayButton(c,0,0,25,active && track.playing,paint,outline);
+        c.restore();
     }
+
+    private final Paint outline=new Paint(Paint.ANTI_ALIAS_FLAG);
 }

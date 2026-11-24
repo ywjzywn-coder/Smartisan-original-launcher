@@ -10769,7 +10769,7 @@ public final class MaintainedLauncherSettingsHost {
         showConfirmDialog(activity, title, message, negative, positive, positiveClick);
     }
 
-    private static void showDialogWithNavigation(Dialog dialog) {
+    public static void showDialogWithNavigation(Dialog dialog) {
         applyNavigationBarToWindow(dialog.getContext(), dialog.getWindow());
         dialog.show();
         applyNavigationBarToWindow(dialog.getContext(), dialog.getWindow());
@@ -17293,13 +17293,13 @@ public final class MaintainedLauncherSettingsHost {
         return view;
     }
 
-    static View smartisanDivider(Context context) {
+    public static View smartisanDivider(Context context) {
         View view = new View(context);
         view.setBackgroundColor(0xffdfdfdf);
         return view;
     }
 
-    static void prepareSmartisanDialogRoot(Context context, LinearLayout root) {
+    public static void prepareSmartisanDialogRoot(Context context, LinearLayout root) {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(0, 0, 0, 0);
         GradientDrawable background = new GradientDrawable();
@@ -17317,7 +17317,7 @@ public final class MaintainedLauncherSettingsHost {
         return dp(context, 24);
     }
 
-    static TextView smartisanDialogActionButton(Context context, String text, boolean primary, int side) {
+    public static TextView smartisanDialogActionButton(Context context, String text, boolean primary, int side) {
         TextView button = new TextView(context);
         button.setGravity(Gravity.CENTER);
         button.setSingleLine(true);
@@ -17330,7 +17330,7 @@ public final class MaintainedLauncherSettingsHost {
     }
 
     /** Shared SmartisanDialog title bar: 53dp, #f2f2f2, centered 18sp bold. */
-    static TextView smartisanDialogTitle(Context context, String title) {
+    public static TextView smartisanDialogTitle(Context context, String title) {
         TextView view = text(context, title, 18, 0xff5c5c5c, true);
         view.setGravity(Gravity.CENTER);
         view.setBackgroundColor(0xfff2f2f2);

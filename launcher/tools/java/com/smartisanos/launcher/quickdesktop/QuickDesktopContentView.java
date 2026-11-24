@@ -460,6 +460,12 @@ final class QuickDesktopContentView extends View {
 
     private void drawPlayButton(Canvas canvas, float cx, float cy, float radius,
             boolean playing) {
+        drawPlayButton(canvas,cx,cy,radius,playing,paint,strokePaint);
+    }
+
+    static void drawPlayButton(Canvas canvas,float cx,float cy,float radius,
+            boolean playing,Paint paint,Paint strokePaint) {
+        strokePaint.setStyle(Paint.Style.STROKE);
         strokePaint.setColor(Color.WHITE);
         strokePaint.setStrokeWidth(2.0f);
         canvas.drawCircle(cx, cy, radius, strokePaint);
