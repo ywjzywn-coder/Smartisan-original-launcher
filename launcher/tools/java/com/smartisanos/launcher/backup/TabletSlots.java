@@ -26,6 +26,63 @@ public final class TabletSlots {
     private static final String PIN_USER = "tablet_pending_pin_user";
 
     private static volatile int homeMask;
+    private static android.util.LongSparseArray<int[]> pendingMoves;
+
+    public static int move(int layout, int kind, int target) {
+        int from=slot(layout,kind);
+        if(from<0 || target<0 || target>=6) return layout;
+        if(fits(layout,kind,target)) return put(layout,kind,target);
+        if(kind==0) return layout;
+        for(int other=1;other<KINDS;other++) {
+            if(other==kind || slot(layout,other)!=target) continue;
+            int cleared=put(put(layout,kind,-1),other,-1);
+            if(fits(cleared,kind,target) && fits(cleared,other,from))
+                return put(put(cleared,kind,target),other,from);
+        }
+        return layout;
+    }
+
+    /** Keep native ItemInfo rows in step with database moves before rebuilding the GL pages. */
+    public static synchronized boolean updateLive(Context context,int draft) {
+        int count=MaintainedLauncherSettingsHost.resolvePortLauncherMode(context,12);
+        int reserved=mask(count,draft);
+        if ((reserved & ~homeMask)==0) { homeMask=reserved; return true; }
+        android.util.LongSparseArray<int[]> changed=new android.util.LongSparseArray<>();
+        try {
+            SQLiteDatabase db=LayoutSnapshotExporter.database(true);
+            db.beginTransaction();
+            try {
+                android.util.LongSparseArray<int[]> before=new android.util.LongSparseArray<>();
+                try(Cursor rows=db.rawQuery("SELECT _id,pageIndex,cellIndex FROM table_iteminfos WHERE pageIndex=0",null)) {
+                    while(rows.moveToNext()) before.put(rows.getLong(0),new int[]{0,rows.getInt(2)});
+                }
+                if(!arrange(db,count,reserved)) return false;
+                if(before.size()>0) try(Cursor rows=db.rawQuery("SELECT _id,pageIndex,cellIndex FROM table_iteminfos WHERE pageIndex>=0",null)) {
+                    while(rows.moveToNext()) {
+                        long id=rows.getLong(0);
+                        int[] previous=before.get(id);
+                        if(previous!=null && (rows.getInt(1)!=0 || rows.getInt(2)!=previous[1]))
+                            changed.put(id,new int[]{rows.getInt(1),rows.getInt(2)});
+                    }
+                }
+                db.setTransactionSuccessful();
+            } finally { db.endTransaction(); }
+        } catch(Exception error) {
+            Log.w("TabletSlots","Could not place home tiles",error);return false;
+        }
+        homeMask=reserved;
+        if(changed.size()>0) {
+            if(pendingMoves==null) pendingMoves=changed;
+            else for(int i=0;i<changed.size();i++) pendingMoves.put(changed.keyAt(i),changed.valueAt(i));
+        }
+        return true;
+    }
+
+    public static synchronized android.util.LongSparseArray<int[]> takeMoves() {
+        android.util.LongSparseArray<int[]> result=pendingMoves;
+        pendingMoves=null;
+        return result;
+    }
 
     public static int reservedHomeMask() { return homeMask; }
 

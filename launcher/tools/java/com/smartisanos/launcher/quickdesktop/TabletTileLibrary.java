@@ -15,7 +15,6 @@ import android.view.View;
 import android.view.Window;
 import android.widget.*;
 import com.smartisanos.launcher.backup.TabletSlots;
-import com.smartisanos.launcher.reload.LauncherColdReloadCoordinator;
 import com.smartisanos.launcher.theme.MaintainedLauncherSettingsHost;
 import static com.smartisanos.launcher.theme.MaintainedLauncherSettingsHost.*;
 
@@ -193,7 +192,9 @@ final class TabletTileLibrary {
         ImageView check=new ImageView(activity);checks[kind]=check;
         int mark=res.getIdentifier("preview_picture_selected","drawable","com.smartisanos.home");
         if(mark!=0) check.setImageDrawable(res.getDrawable(mark));
-        stage.addView(check,new FrameLayout.LayoutParams(dp(21),dp(21),Gravity.RIGHT|Gravity.TOP));
+        LinearLayout.LayoutParams markSize=new LinearLayout.LayoutParams(dp(21),dp(21));
+        markSize.leftMargin=dp(6);
+        caption.addView(check,markSize);
         card.setContentDescription(NAMES[kind]+(added?"，已添加":"，可选"));
         card.setFocusable(true);
         card.setOnClickListener(new View.OnClickListener(){public void onClick(View view){
@@ -208,7 +209,7 @@ final class TabletTileLibrary {
             GradientDrawable frame=surface(picked?0xfff2f6fb:0xfffafafa,picked?0xff7999b9:0xffc5c8c9);
             if(picked) frame.setStroke(dp(2),0xff7999b9);
             cards[k].setSelected(picked);cards[k].setBackground(frame);
-            checks[k].setVisibility(picked?View.VISIBLE:View.GONE);
+            checks[k].setVisibility(picked?View.VISIBLE:View.INVISIBLE);
         }
         boolean hasRoom=added || freeSlot(selected)>=0;
         secondary.setText(placement?"返回组件库":added?"移除组件":"选择位置");
@@ -296,7 +297,8 @@ final class TabletTileLibrary {
             Toast.makeText(activity,"未能保存组件",Toast.LENGTH_SHORT).show();
             return false;
         }
-        if(original==draft || LauncherColdReloadCoordinator.beginTabletTilesReload(activity)){
+        if(original==draft || TabletSlots.updateLive(activity,draft)){
+            TabletHome.refreshLayout();
             if(!android.text.TextUtils.equals(oldImage,image)) TabletPhoto.forget(activity,oldImage);
             return true;
         }

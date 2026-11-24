@@ -74,7 +74,15 @@ final class DefaultHomeSettingsPage {
                 state < 0 ? "setting_item_up" : "selector_setting_sub_item_bg_single"));
         View instructions = find(resources, root, "default_home_instructions");
         if (instructions != null) instructions.setVisibility(state == 1 ? View.GONE : View.VISIBLE);
-        setText(instructions, defaultHomeStatusMessage(resources, state));
+        String message=defaultHomeStatusMessage(resources,state);
+        if(isHuawei() && state!=1) {
+            Intent home=new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
+            PackageManager pm=activity.getPackageManager();
+            ResolveInfo current=pm.resolveActivity(home,PackageManager.MATCH_DEFAULT_ONLY);
+            if(current!=null && current.activityInfo!=null && !"android".equals(current.activityInfo.packageName))
+                message+="\n当前系统桌面："+current.activityInfo.applicationInfo.loadLabel(pm);
+        }
+        setText(instructions, message);
         View tips = find(resources, root, "default_home_tips");
         View heading = find(resources, root, "default_home_tips_title");
         if (tips != null) tips.setVisibility(state == 1 ? View.GONE : View.VISIBLE);
@@ -167,7 +175,7 @@ final class DefaultHomeSettingsPage {
     }
 
     private static String defaultHomeHelpMessage(Resources resources, String manufacturer, String brand) {
-        if(isHuawei()) return "在系统设置的「应用和服务 → 默认应用 → 桌面」中选择本桌面。若列表只有华为桌面，此系统版本可能限制第三方桌面的默认资格。";
+        if(isHuawei()) return "在系统设置中搜索「默认应用」，打开「桌面」。如果有「锤子桌面」，选中后按主页键验证。如果列表只有「华为桌面」，当前系统没有提供切换到本应用的选项。";
         String device = (manufacturer + " " + brand).toLowerCase(java.util.Locale.ROOT);
         String key = "default_home_help_generic";
         if (device.contains("vivo") || device.contains("iqoo")) {

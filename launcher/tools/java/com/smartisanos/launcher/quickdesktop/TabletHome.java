@@ -34,16 +34,19 @@ public final class TabletHome extends FrameLayout {
     private MotionEvent touchDown;
     private boolean replaying, held;
     private View candidate;
+    private boolean dragging;
+    private int dropSlot=-1;
+    private final Paint dropPaint=new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private static final class Geometry {
         final int page, occupied, cols, rows;
-        final float cw,ch,top,dock;
-        Geometry(int page,int occupied,int cols,int rows,float cw,float ch,float top,float dock) {
+        final float cw,ch,left,top,sx,sy,dock;
+        Geometry(int page,int occupied,int cols,int rows,float cw,float ch,float left,float top,float sx,float sy,float dock) {
             this.page=page;this.occupied=occupied;this.cols=cols;this.rows=rows;
-            this.cw=cw;this.ch=ch;this.top=top;this.dock=dock;
+            this.cw=cw;this.ch=ch;this.left=left;this.top=top;this.sx=sx;this.sy=sy;this.dock=dock;
         }
-        boolean matches(int p,int mask,int c,int r,float w,float h,float t,float d) {
-            return page==p && occupied==mask && cols==c && rows==r && cw==w && ch==h && top==t && dock==d;
+        boolean matches(int p,int mask,int c,int r,float w,float h,float l,float t,float x,float y,float d) {
+            return page==p && occupied==mask && cols==c && rows==r && cw==w && ch==h && left==l && top==t && sx==x && sy==y && dock==d;
         }
     }
 
@@ -78,12 +81,27 @@ public final class TabletHome extends FrameLayout {
         TabletHome panel=active.get();
         if (panel!=null) panel.post(new Runnable() { public void run() { panel.arrange(); panel.loadRecent(); } });
     }
-    public static void scene(int page,int occupied,int cols,int rows,float cw,float ch,float top,float dock) {
+    static void refreshLayout() {
+        TabletHome panel=active.get();
+        if(panel!=null) {
+            panel.post(panel.render);
+            View surface=QuickDesktopBackgroundCapture.findSurfaceView(panel.getRootView());
+            if(surface instanceof android.opengl.GLSurfaceView)
+                ((android.opengl.GLSurfaceView)surface).requestRender();
+        }
+    }
+    public static void scene(int page,int occupied,int cols,int rows,float cw,float ch,float[] corners,float dock) {
         TabletHome panel=active.get();
         if (panel==null) return;
         Geometry old=panel.state;
-        if (old!=null && old.matches(page,occupied,cols,rows,cw,ch,top,dock)) return;
-        panel.state=new Geometry(page,occupied,cols,rows,cw,ch,top,dock);
+        // Native corner samples span -1 to +1 in each axis, with a bottom-up viewport.
+        float sx=Math.abs(corners[3]-corners[0])*.5f;
+        float sy=Math.abs(corners[4]-corners[1])*.5f;
+        float left=(corners[0]+corners[3]-cols*cw*sx)*.5f;
+        float top=panel.getHeight()-(corners[1]+corners[4]+rows*ch*sy)*.5f;
+        if (old!=null && old.matches(page,occupied,cols,rows,cw,ch,left,top,sx,sy,dock)) return;
+        panel.state=new Geometry(page,occupied,cols,rows,cw,ch,left,top,sx,sy,dock);
+        panel.removeCallbacks(panel.render);
         panel.post(panel.render);
     }
     public static void hideScene() {
@@ -146,17 +164,19 @@ public final class TabletHome extends FrameLayout {
         boolean entering = getVisibility() != VISIBLE;
         setVisibility(VISIBLE);
         if (entering) loadRecent();
-        int[] origin=new int[2]; getLocationOnScreen(origin);
         positions=TabletSlots.positions(prefs);
         for(int i=0;i<tiles.length;i++) {
             View tile=tiles[i];
             int slot=TabletSlots.slot(positions,i);
-            if(g.page!=0 || !TabletSlots.fits(positions,i,slot)){tile.setVisibility(GONE);continue;}
+            if(!TabletSlots.fits(positions,i,slot)){tile.setVisibility(GONE);continue;}
             Rect r=TabletSlots.rect(g.cols*g.rows,width>height,i,slot);
             int mask=TabletSlots.bits(r,g.cols);
-            tile.setVisibility((mask & g.occupied)==0 ? VISIBLE : GONE);
+            boolean intersects=g.left+r.right*g.cw*g.sx>0 && g.left+r.left*g.cw*g.sx<width
+                    && g.top+r.bottom*g.ch*g.sy>0 && g.top+r.top*g.ch*g.sy<height;
+            tile.setVisibility(intersects && g.sx>0 && g.sy>0 && (mask & g.occupied)==0 ? VISIBLE : GONE);
             float pad=Math.max(1,dp(.65f));
-            place(tile,(width-g.cols*g.cw)*.5f+r.left*g.cw+pad,g.top-origin[1]+r.top*g.ch+pad,
+            tile.setPivotX(0);tile.setPivotY(0);tile.setScaleX(g.sx);tile.setScaleY(g.sy);
+            place(tile,g.left+(r.left*g.cw+pad)*g.sx,g.top+(r.top*g.ch+pad)*g.sy,
                     r.width()*g.cw-2*pad,r.height()*g.ch-2*pad);
         }
         int count=Math.min(TabletLayout.recentLimit(width),Math.max(0,recent.getChildCount()-1));
@@ -198,8 +218,8 @@ public final class TabletHome extends FrameLayout {
         Geometry g=state;
         if (g==null || g.page!=0 || g.cw<=0 || g.ch<=0) return false;
         int[] origin=new int[2]; getLocationOnScreen(origin);
-        float col=(x-origin[0]-(getWidth()-g.cols*g.cw)*.5f)/g.cw;
-        float row=(y-g.top)/g.ch;
+        float col=(x-origin[0]-g.left)/(g.cw*g.sx);
+        float row=(y-origin[1]-g.top)/(g.ch*g.sy);
         if (col>=0 && row>=0 && col<g.cols && row<g.rows)
             return (g.occupied & (1 << ((int)row*g.cols+(int)col)))==0;
         float dockY=y-origin[1]-(getHeight()-g.dock);
@@ -209,6 +229,11 @@ public final class TabletHome extends FrameLayout {
     }
     private void endTouch() {
         removeCallbacks(longPress);
+        if(candidate!=null && dragging) {
+            candidate.setTranslationX(0);candidate.setTranslationY(0);
+            candidate.setTranslationZ(0);candidate.setAlpha(1f);
+        }
+        dragging=false;dropSlot=-1;invalidate();
         if(touchDown!=null){touchDown.recycle();touchDown=null;}
         candidate=null;
     }
@@ -216,8 +241,31 @@ public final class TabletHome extends FrameLayout {
         if(touchDown==null || !isShown() || !hasWindowFocus() || state==null) return;
         held=true;
         if(candidate==TabletHome.this) openLibrary(-1);
+        else if(candidate instanceof TabletTile) candidate.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
         else if(candidate!=null && candidate.isShown()) candidate.performLongClick();
     }};
+    private int dropAt(TabletTile tile,float x,float y) {
+        Geometry g=state;
+        if(g==null || g.page!=0) return -1;
+        int col=(int)Math.floor((x-g.left)/(g.cw*g.sx));
+        int row=(int)Math.floor((y-g.top)/(g.ch*g.sy));
+        for(int i=0;i<6;i++) {
+            if(!TabletSlots.rect(g.cols*g.rows,getWidth()>getHeight(),tile.kind,i).contains(col,row)) continue;
+            if(TabletSlots.move(positions,tile.kind,i)!=positions) return i;
+        }
+        return -1;
+    }
+
+    @Override protected void dispatchDraw(Canvas c) {
+        Geometry g=state;
+        if(dragging && dropSlot>=0 && candidate instanceof TabletTile && g!=null) {
+            Rect r=TabletSlots.rect(g.cols*g.rows,getWidth()>getHeight(),((TabletTile)candidate).kind,dropSlot);
+            dropPaint.setColor(0xaa84aac9);
+            c.drawRect(g.left+r.left*g.cw*g.sx,g.top+r.top*g.ch*g.sy,
+                    g.left+r.right*g.cw*g.sx,g.top+r.bottom*g.ch*g.sy,dropPaint);
+        }
+        super.dispatchDraw(c);
+    }
     private boolean touch(ViewGroup root,MotionEvent event) {
         int action=event.getActionMasked();
         if(action==MotionEvent.ACTION_DOWN) {
@@ -225,6 +273,7 @@ public final class TabletHome extends FrameLayout {
             if (!isShown() || !hasWindowFocus() || state==null) return false;
             float x=event.getRawX(), y=event.getRawY();
             candidate=at(x,y);
+            if(candidate instanceof TabletTile && state.page!=0) return false;
             if(candidate==null && emptyHomeCell(x,y)) candidate=this;
             if(candidate==null) return false;
             touchDown=MotionEvent.obtain(event);
@@ -233,6 +282,24 @@ public final class TabletHome extends FrameLayout {
         }
         if(touchDown==null) return false;
         int slop=ViewConfiguration.get(getContext()).getScaledTouchSlop();
+        if(held && candidate instanceof TabletTile) {
+            TabletTile tile=(TabletTile)candidate;
+            float dx=event.getRawX()-touchDown.getRawX(),dy=event.getRawY()-touchDown.getRawY();
+            if(action==MotionEvent.ACTION_MOVE && (dragging || Math.hypot(dx,dy)>slop)) {
+                dragging=true;
+                tile.setTranslationX(dx);tile.setTranslationY(dy);tile.setTranslationZ(dp(8));tile.setAlpha(.82f);
+                int[] origin=new int[2];getLocationOnScreen(origin);
+                dropSlot=dropAt(tile,event.getRawX()-origin[0],event.getRawY()-origin[1]);
+                invalidate();
+            } else if(action==MotionEvent.ACTION_UP) {
+                boolean moved=dragging;
+                int next=TabletSlots.move(positions,tile.kind,dropSlot);
+                endTouch();
+                if(moved && next!=positions) TabletTileLibrary.apply(activity(),prefs,positions,next);
+                else if(!moved) tile.performLongClick();
+            } else if(action==MotionEvent.ACTION_CANCEL || action==MotionEvent.ACTION_POINTER_DOWN) endTouch();
+            return true;
+        }
         if(!held && (action==MotionEvent.ACTION_POINTER_DOWN || (action==MotionEvent.ACTION_MOVE &&
                 (Math.abs(event.getX()-touchDown.getX())>slop || Math.abs(event.getY()-touchDown.getY())>slop)))) {
             replaying=true;
@@ -290,8 +357,8 @@ public final class TabletHome extends FrameLayout {
         if (!v.isShown()) return false;
         int[] origin = new int[2];
         v.getLocationOnScreen(origin);
-        return x >= origin[0] && x < origin[0] + v.getWidth()
-                && y >= origin[1] && y < origin[1] + v.getHeight();
+        return x >= origin[0] && x < origin[0] + v.getWidth()*v.getScaleX()
+                && y >= origin[1] && y < origin[1] + v.getHeight()*v.getScaleY();
     }
 
     public static synchronized void record(Context context, Intent intent,int user) {

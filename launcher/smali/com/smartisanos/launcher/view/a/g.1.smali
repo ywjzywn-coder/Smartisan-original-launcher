@@ -15466,7 +15466,26 @@
 .end method
 
 .method public setPressed(Z)V
-    .locals 1
+    .locals 3
+
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result v0
+    if-eqz v0, :normal_press
+    invoke-virtual {p0}, Lcom/smartisanos/launcher/view/a/g;->Rl()Lcom/smartisanos/launcher/data/ItemInfo;
+    move-result-object v0
+    if-eqz v0, :normal_press
+    iget v0, v0, Lcom/smartisanos/launcher/data/ItemInfo;->pageIndex:I
+    const/4 v1, -0x2
+    if-ne v0, v1, :normal_press
+    const/high16 v2, 0x3f800000
+    move v1, v2
+    if-eqz p1, :dock_tint
+    const v1, 0x3f333333
+    :dock_tint
+    invoke-virtual {p0, v1, v1, v1, v2}, Lcom/smartisanos/smengine/SceneNode;->setColor(FFFF)V
+    invoke-super {p0,p1}, Lcom/smartisanos/smengine/SceneNode;->setPressed(Z)V
+    return-void
+    :normal_press
 
     .line 1
     invoke-virtual {p0}, Lcom/smartisanos/launcher/view/a/g;->sm()Z

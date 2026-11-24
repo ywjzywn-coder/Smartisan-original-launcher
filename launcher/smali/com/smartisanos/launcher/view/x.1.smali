@@ -518,6 +518,20 @@
     add-float/2addr p1, p3
 
     :goto_0
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result p3
+    if-eqz p3, :trash_x_ready
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->trashCenterX()F
+    move-result p1
+    if-eqz p2, :trash_x_ready
+    iget p2, v0, Lcom/smartisanos/launcher/data/LayoutProperty;->dock_height:F
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->bottomInset()I
+    move-result p3
+    int-to-float p3,p3
+    sub-float/2addr p2,p3
+    div-float/2addr p2,v2
+    goto :cond_3
+    :trash_x_ready
     if-eqz p2, :cond_2
 
     .line 145
@@ -1653,7 +1667,6 @@
     .line 56
     :cond_8
     :goto_3
-    if-nez v3, :dock_metrics_ready
     invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
     move-result p1
     if-eqz p1, :dock_metrics_ready

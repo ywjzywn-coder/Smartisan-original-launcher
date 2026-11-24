@@ -115,6 +115,11 @@ public final class LayoutPropertyAdapter {
                 if (type == Float.TYPE) {
                     float factor = desktopFactorFor(name, suffix, scaleX, scaleY, scale,
                             desktopPortrait, localScale, placementScaleY);
+                    if (tablet && !folderLayout && name.startsWith("edit_icon_")) factor = iconScale;
+                    if (tablet && !folderLayout && name.startsWith("trash_")) {
+                        // Keep the source texture proportions, and size its hit region with it.
+                        factor = iconScale * .64f;
+                    }
                     if (factor != 1.0f) {
                         field.setFloat(property, field.getFloat(property) * factor);
                     }
@@ -131,14 +136,16 @@ public final class LayoutPropertyAdapter {
             if (tablet && !folderLayout) {
                 setNumericField(property, "dock_app_count",
                         TabletLayout.dockCapacity(resources.getConfiguration()));
+                float dp=resources.getDisplayMetrics().density;
+                float shelf=Math.max(72f,Math.min(88f,Math.min(width,height)/dp*.105f))*dp;
+                setNumericField(property,"dock_height",shelf+TabletLayout.bottomInset());
+                float binHeight=numericField(property,"trash_height");
+                setNumericField(property,"trash_display_height",(shelf+binHeight)*.5f+TabletLayout.bottomInset());
+                setNumericField(property,"dock_cells_offset_y",TabletLayout.bottomInset()/2f);
+                setNumericField(property,"dock_cells_offset_y_without_app_name",TabletLayout.bottomInset()/2f);
                 if (resourceMode == 12 || resourceMode == 20) {
                     float density = resources.getDisplayMetrics().density;
-                    float shortEdgeDp = Math.min(width, height) / density;
-                    float shelfHeightDp = Math.max(72f, Math.min(88f, shortEdgeDp * 0.105f));
-                    float dock = shelfHeightDp * density + TabletLayout.bottomInset();
-                    setNumericField(property, "dock_height", dock);
-                    setNumericField(property, "dock_cells_offset_y", TabletLayout.bottomInset() / 2f);
-                    setNumericField(property, "dock_cells_offset_y_without_app_name", TabletLayout.bottomInset() / 2f);
+                    float dock = shelf + TabletLayout.bottomInset();
                     float rows = numericField(property, "page_cell_row_num");
                     float cols = numericField(property, "page_cell_col_num");
                     float edge = Math.min(width / Math.max(1f,cols),

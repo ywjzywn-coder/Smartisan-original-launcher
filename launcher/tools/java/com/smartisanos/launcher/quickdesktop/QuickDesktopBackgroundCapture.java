@@ -159,7 +159,7 @@ public final class QuickDesktopBackgroundCapture {
         });
     }
 
-    private static SurfaceView findSurfaceView(View view) {
+    static SurfaceView findSurfaceView(View view) {
         if (view instanceof GLSurfaceView) return (SurfaceView) view;
         if (view instanceof ViewGroup) {
             ViewGroup group = (ViewGroup) view;

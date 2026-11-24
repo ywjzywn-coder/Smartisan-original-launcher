@@ -64,6 +64,10 @@ public final class TabletLayout {
         return context == null ? 1f : context.getResources().getDisplayMetrics().density;
     }
 
+    public static float trashCenterX() {
+        return leftInset + 34f * density();
+    }
+
     public static int dockCapacity(Configuration config) {
         // A fixed short-edge capacity keeps saved indices valid through rotation.
         int slots = (config.smallestScreenWidthDp - 22) / 48;

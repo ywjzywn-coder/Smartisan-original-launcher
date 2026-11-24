@@ -42,14 +42,11 @@ final class TabletInstrumentArt {
     private static void batterySpace(Canvas c,float w,float h) {
         if(w>h) {c.translate(w,0);c.rotate(90);}
     }
-    // All battery geometry is in upright coordinates. Only the terminal projects
-    // past the top cap, leaving the underlying desktop visible at its shoulders.
+    // Fill the slot edge to edge in both orientations.
     private void setBatteryCore(float width, float height) {
         float diameter = Math.min(width, height);
         float length = Math.max(width, height);
-        float cap = diameter * .045f;
-        float terminal = diameter * .035f;
-        batteryCore.set(0, terminal + cap, diameter, length - cap);
+        batteryCore.set(0, 0, diameter, length);
     }
 
     private void battery(Canvas c, float w, float h, int percent) {
@@ -58,14 +55,6 @@ final class TabletInstrumentArt {
         batterySpace(c, w, h);
         setBatteryCore(w, h);
         float diameter = batteryCore.width();
-        float length = Math.max(w, h);
-        float terminal = diameter * .035f;
-        float radius = diameter * .024f;
-
-        grad(diameter*.34f, 0, diameter*.66f, 0, 0xff666b6a, 0xffc9cdca, 0xff979d9a, 0xff565b59);
-        c.drawRoundRect(diameter*.34f, 0, diameter*.66f, terminal + radius, radius*.5f, radius*.5f, p);
-        grad(0, 0, diameter, 0, 0xff535a58, 0xffbbc0bd, 0xff7f8783, 0xffdaddd8, 0xff828885, 0xff535957);
-        c.drawRoundRect(0, terminal, diameter, length, radius, radius, p);
 
         grad(0, 0, diameter, 0, 0xff303735, 0xff464f4a, 0xff69716b, 0xff838b83, 0xff59605c, 0xff343d38);
         c.drawRect(batteryCore, p);
@@ -77,10 +66,6 @@ final class TabletInstrumentArt {
         for (float y = batteryCore.bottom - pitch; y > batteryCore.top; y -= pitch) {
             c.drawRect(0, y, diameter, y + pitch*.30f, p);
         }
-        float seam = Math.max(1f, diameter*.004f);
-        solid(0x72ffffff);
-        c.drawRect(0, batteryCore.top - seam, diameter, batteryCore.top, p);
-        c.drawRect(0, batteryCore.bottom, diameter, batteryCore.bottom + seam, p);
         c.restore();
     }
 
