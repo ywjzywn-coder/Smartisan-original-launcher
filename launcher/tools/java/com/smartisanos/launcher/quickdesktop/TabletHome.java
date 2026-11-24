@@ -31,7 +31,8 @@ public final class TabletHome extends FrameLayout {
     private final Runnable render = new Runnable() { public void run() { arrange(); } };
     private volatile Geometry state;
     private int recentGeneration;
-    private float downX, downY;
+    private MotionEvent touchDown;
+    private boolean replaying, held;
     private View candidate;
 
     private static final class Geometry {
@@ -58,6 +59,9 @@ public final class TabletHome extends FrameLayout {
         positions=TabletSlots.positions(prefs);
         for(int k=0;k<tiles.length;k++){
             tiles[k]=new TabletTile(context,k);
+            tiles[k].setOnLongClickListener(new OnLongClickListener(){public boolean onLongClick(View tile) {
+                tileMenu((TabletTile)tile); return true;
+            }});
             tiles[k].setVisibility(GONE);
             addView(tiles[k]);
         }
@@ -71,7 +75,7 @@ public final class TabletHome extends FrameLayout {
         pinned=count;
         TabletLayout.invalidateDock();
         TabletHome panel=active.get();
-        if (panel!=null) panel.post(panel.render);
+        if (panel!=null) panel.post(new Runnable() { public void run() { panel.arrange(); panel.loadRecent(); } });
     }
     public static void scene(int page,int occupied,int cols,int rows,float cw,float ch,float top,float dock) {
         TabletHome panel=active.get();
@@ -118,6 +122,7 @@ public final class TabletHome extends FrameLayout {
     @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); loadRecent(); }
     @Override protected void onDetachedFromWindow() {
         recentGeneration++;
+        endTouch();
         removeCallbacks(render);
         super.onDetachedFromWindow();
     }
@@ -179,27 +184,96 @@ public final class TabletHome extends FrameLayout {
         }
     }
 
-    // Let RootView and its GL surface own every swipe, drag and long press.
-    @Override public boolean dispatchTouchEvent(MotionEvent e) {return false;}
-    public static void observeTouch(ViewGroup root, MotionEvent event) {
+    @Override public boolean dispatchTouchEvent(MotionEvent event) { return false; }
+
+    // RootView owns the GL scene. Delay its DOWN only for interactive overlay cells,
+    // then replay it before the first swipe or second pointer to preserve native gestures.
+    public static boolean handleTouch(ViewGroup root, MotionEvent event) {
         TabletHome panel=active.get();
-        if(panel==null || panel.getParent()!=root || !panel.isShown() || !panel.hasWindowFocus()) return;
-        int action=event.getActionMasked();
-        float x=event.getRawX(), y=event.getRawY();
-        if(action==MotionEvent.ACTION_DOWN) {
-            panel.downX=x;panel.downY=y;panel.candidate=panel.at(x,y);
-        } else if(action==MotionEvent.ACTION_MOVE) {
-            int slop=ViewConfiguration.get(root.getContext()).getScaledTouchSlop();
-            if(Math.abs(x-panel.downX)>slop || Math.abs(y-panel.downY)>slop) panel.candidate=null;
-        } else if(action==MotionEvent.ACTION_UP) {
-            View target=panel.candidate;panel.candidate=null;
-            if(target!=null && target==panel.at(x,y) &&
-                    event.getEventTime()-event.getDownTime()<ViewConfiguration.getLongPressTimeout()) {
-                event.setAction(MotionEvent.ACTION_CANCEL);
-                target.post(new Runnable() { public void run() { target.performClick(); } });
-            }
-        } else {panel.candidate=null;}
+        return panel!=null && panel.getParent()==root && !panel.replaying && panel.touch(root,event);
     }
+
+    private boolean emptyHomeCell(float x,float y) {
+        Geometry g=state;
+        if (g==null || g.page!=0 || g.cw<=0 || g.ch<=0) return false;
+        int[] origin=new int[2]; getLocationOnScreen(origin);
+        float col=(x-origin[0]-(getWidth()-g.cols*g.cw)*.5f)/g.cw;
+        float row=(y-g.top)/g.ch;
+        if (col>=0 && row>=0 && col<g.cols && row<g.rows)
+            return (g.occupied & (1 << ((int)row*g.cols+(int)col)))==0;
+        float dockY=y-origin[1]-(getHeight()-g.dock);
+        if (dockY<0 || dockY>=g.dock-TabletLayout.bottomInset()) return false;
+        float left=TabletLayout.dockLeft(getWidth(),pinned);
+        return x-origin[0]<left || x-origin[0]>getWidth()-left;
+    }
+    private void endTouch() {
+        removeCallbacks(longPress);
+        if(touchDown!=null){touchDown.recycle();touchDown=null;}
+        candidate=null;
+    }
+    private final Runnable longPress=new Runnable(){public void run(){
+        if(touchDown==null || !isShown() || !hasWindowFocus() || state==null) return;
+        held=true;
+        if(candidate==TabletHome.this) openLibrary(-1);
+        else if(candidate!=null && candidate.isShown()) candidate.performLongClick();
+    }};
+    private boolean touch(ViewGroup root,MotionEvent event) {
+        int action=event.getActionMasked();
+        if(action==MotionEvent.ACTION_DOWN) {
+            endTouch(); held=false;
+            if (!isShown() || !hasWindowFocus() || state==null) return false;
+            float x=event.getRawX(), y=event.getRawY();
+            candidate=at(x,y);
+            if(candidate==null && emptyHomeCell(x,y)) candidate=this;
+            if(candidate==null) return false;
+            touchDown=MotionEvent.obtain(event);
+            postDelayed(longPress,ViewConfiguration.getLongPressTimeout());
+            return true;
+        }
+        if(touchDown==null) return false;
+        int slop=ViewConfiguration.get(getContext()).getScaledTouchSlop();
+        if(!held && (action==MotionEvent.ACTION_POINTER_DOWN || (action==MotionEvent.ACTION_MOVE &&
+                (Math.abs(event.getX()-touchDown.getX())>slop || Math.abs(event.getY()-touchDown.getY())>slop)))) {
+            replaying=true;
+            try {root.dispatchTouchEvent(touchDown);} finally {replaying=false;endTouch();}
+            return false;
+        }
+        if(action==MotionEvent.ACTION_CANCEL || action==MotionEvent.ACTION_UP) {
+            View target=candidate;
+            boolean click=action==MotionEvent.ACTION_UP && !held && target!=this && target.isShown()
+                    && target==at(event.getRawX(),event.getRawY());
+            endTouch();
+            if(click) target.performClick();
+        }
+        return true;
+    }
+
+    private Activity activity() {
+        Context context=getContext();
+        while(context instanceof ContextWrapper && !(context instanceof Activity))
+            context=((ContextWrapper)context).getBaseContext();
+        return context instanceof Activity ? (Activity)context : null;
+    }
+
+    private void openLibrary(int kind) {
+        Activity home=activity();
+        if(home!=null) new TabletTileLibrary(home,kind).show();
+    }
+    private void tileMenu(final TabletTile tile) {
+        final Activity home=activity();
+        if(home==null) return;
+        MaintainedLauncherSettingsHost.showSmartisanSingleChoiceDialog(home,TabletTileLibrary.NAMES[tile.kind],
+                new String[]{"调整位置","移除组件","添加组件"},-1,
+                new MaintainedLauncherSettingsHost.SingleChoiceListener() {
+                    public void onSelected(int index) {
+                        if(index==1) {
+                            int layout=TabletSlots.positions(prefs);
+                            TabletTileLibrary.apply(home,prefs,layout,TabletSlots.put(layout,tile.kind,-1));
+                        } else openLibrary(index==0?tile.kind:-1);
+                    }
+                });
+    }
+
     private View at(float x,float y) {
         if (state==null) return null;
         for (View tile:tiles) if(contains(tile,x,y)) return tile;
@@ -231,6 +305,30 @@ public final class TabletHome extends FrameLayout {
     }
     private static final class RecentApp {
         ComponentName cn; int user; Drawable icon; String label;
+    }
+    private static synchronized void forgetRecent(Context context, RecentApp item) {
+        SharedPreferences history = context.getSharedPreferences(HISTORY, 0);
+        List<String> order = new ArrayList<>(Arrays.asList(history.getString("order","").split("\n")));
+        order.remove(item.user + "|" + item.cn.flattenToString());
+        history.edit().putString("order", TextUtils.join("\n", order)).apply();
+    }
+
+    private void recentMenu(final RecentApp item) {
+        Activity home=activity();
+        if(home==null) return;
+        MaintainedLauncherSettingsHost.showSmartisanSingleChoiceDialog(home,item.label,
+                new String[]{"固定到常驻栏","从最近使用中移除"},-1,
+                new MaintainedLauncherSettingsHost.SingleChoiceListener() {
+                    public void onSelected(int index) {
+                        if(index==0) {
+                            String message=TabletSlots.requestPin(getContext(),item.cn,item.user,pinned);
+                            if(message!=null) Toast.makeText(getContext(),message,Toast.LENGTH_LONG).show();
+                        } else {
+                            forgetRecent(getContext(),item);
+                            loadRecent();
+                        }
+                    }
+                });
     }
     private void loadRecent() {
         final int generation=++recentGeneration;
@@ -279,6 +377,9 @@ public final class TabletHome extends FrameLayout {
             int size=dp(TabletLayout.DOCK_ICON_DP);
             button.addView(image,new LinearLayout.LayoutParams(size,size));
             recent.addView(button,new LinearLayout.LayoutParams(dp(80),-1));
+            button.setOnLongClickListener(new OnLongClickListener() {
+                public boolean onLongClick(View anchor) { recentMenu(item); return true; }
+            });
             button.setOnClickListener(new OnClickListener() { public void onClick(View v) {
                 if(!TabletSlots.mayShowRecent(item.cn.getPackageName(),item.cn.getClassName(),item.user)) {loadRecent();return;}
                 Intent launch=Intent.makeMainActivity(item.cn).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -317,7 +418,7 @@ public final class TabletHome extends FrameLayout {
         control.addView(arrow,new FrameLayout.LayoutParams(-2,-2,Gravity.RIGHT|Gravity.CENTER_VERTICAL));
         parent.addView(control,parent.indexOfChild(row)+1,new LinearLayout.LayoutParams(-1,Math.round(64*scale)));
         control.setOnClickListener(new OnClickListener(){public void onClick(View v){
-            new TabletTileLibrary(activity,twelve.getContext()).show();
+            new TabletTileLibrary(activity,-1).show();
         }});
     }
     private static Bitmap preview(Activity a,int count,int layout) {

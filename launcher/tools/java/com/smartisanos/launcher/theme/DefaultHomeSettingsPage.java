@@ -115,8 +115,7 @@ final class DefaultHomeSettingsPage {
                     Class<?> cls = Class.forName("android.app.role.RoleManager");
                     String home = (String) cls.getField("ROLE_HOME").get(null);
                     if ((Boolean) cls.getMethod("isRoleAvailable", String.class).invoke(manager, home)) {
-                        if ((Boolean) cls.getMethod("isRoleHeld", String.class).invoke(manager, home)) return 1;
-                        roleState = 0;
+                        roleState = (Boolean) cls.getMethod("isRoleHeld", String.class).invoke(manager, home) ? 1 : 0;
                     }
                 }
             } catch (Exception error) {

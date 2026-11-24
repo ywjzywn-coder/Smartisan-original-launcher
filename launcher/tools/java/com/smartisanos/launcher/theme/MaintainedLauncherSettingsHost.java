@@ -11760,7 +11760,7 @@ public final class MaintainedLauncherSettingsHost {
         }
     }
 
-    static Resources getMaintainedResources(Activity activity) {
+    public static Resources getMaintainedResources(Activity activity) {
         try {
             return createSettingsContext(activity).getResources();
         } catch (Throwable ignored) {
@@ -14057,11 +14057,11 @@ public final class MaintainedLauncherSettingsHost {
         boolean onConfirm(EditText input, String value);
     }
 
-    interface SingleChoiceListener {
+    public interface SingleChoiceListener {
         void onSelected(int which);
     }
 
-    static void showSmartisanSingleChoiceDialog(final Activity activity, String title,
+    public static void showSmartisanSingleChoiceDialog(final Activity activity, String title,
             String[] labels, int checked, final SingleChoiceListener listener) {
         final Dialog dialog = new Dialog(activity);
         LinearLayout root = new LinearLayout(activity);

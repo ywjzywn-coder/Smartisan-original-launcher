@@ -1343,7 +1343,12 @@
 
 .method public dispatchTouchEvent(Landroid/view/MotionEvent;)Z
     .locals 4
-    invoke-static {p0,p1}, Lcom/smartisanos/launcher/quickdesktop/TabletHome;->observeTouch(Landroid/view/ViewGroup;Landroid/view/MotionEvent;)V
+    invoke-static {p0,p1}, Lcom/smartisanos/launcher/quickdesktop/TabletHome;->handleTouch(Landroid/view/ViewGroup;Landroid/view/MotionEvent;)Z
+    move-result v0
+    if-eqz v0, :native_touch
+    const/4 v0, 0x1
+    return v0
+    :native_touch
 
     .line 1
     sget-boolean v0, Lcom/smartisanos/launcher/va;->_h:Z

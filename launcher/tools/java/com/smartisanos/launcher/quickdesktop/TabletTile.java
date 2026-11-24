@@ -17,15 +17,18 @@ import java.util.Locale;
 
 /** Live artwork sized to whole Smartisan cells. */
 final class TabletTile extends View {
-    static final int CALENDAR = 0, CLOCK = 1, MUSIC = 2, WEATHER = 3;
+    static final int CALENDAR = 0, CLOCK = 1, MUSIC = 2, WEATHER = 3, BATTERY = 4, STORAGE = 5;
     final int kind;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
     private final float density;
     private QuickDesktopMediaBridge.Snapshot track;
-    private static final java.util.concurrent.ExecutorService mediaWorker =
+    private static final java.util.concurrent.ExecutorService tileWorker =
             java.util.concurrent.Executors.newSingleThreadExecutor();
     private boolean readingMedia;
+    private boolean readingStorage;
     private String nextAlarm;
+    private String reading = "—", detail = "";
+    private float fraction;
     private Bundle forecast;
     private Bitmap sky;
     private String skyArt;
@@ -51,6 +54,8 @@ final class TabletTile extends View {
             removeCallbacks(this);
             if (!isShown() || !hasWindowFocus()) return;
             if (kind == MUSIC) refreshMedia();
+            if (kind == BATTERY) refreshBattery();
+            if (kind == STORAGE) refreshStorage();
             if (kind == WEATHER) {
                 forecast=WeatherBridge.getTabletForecast(getContext());
                 String code=forecast==null?"99":forecast.getString("weatherCode","99");
@@ -79,7 +84,7 @@ final class TabletTile extends View {
         if (readingMedia) return;
         readingMedia=true;
         final Context app=getContext().getApplicationContext();
-        mediaWorker.execute(new Runnable(){public void run(){
+        tileWorker.execute(new Runnable(){public void run(){
             QuickDesktopMediaBridge.Snapshot result=null;
             try { result=QuickDesktopMediaBridge.read(app,false); }
             catch(RuntimeException unavailable){android.util.Log.w("TabletTile","Media session unavailable",unavailable);}
@@ -127,6 +132,58 @@ final class TabletTile extends View {
             if (kind==WEATHER) context.startActivity(new Intent("com.smartisanos.launcher.WEATHER_SETTINGS")
                     .setClassName(context.getPackageName(),"com.smartisanos.launcher.theme.ThemeChooserActivity")
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            if (kind == BATTERY || kind == STORAGE) {
+                String action = kind == BATTERY ? Intent.ACTION_POWER_USAGE_SUMMARY
+                        : android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS;
+                try { context.startActivity(new Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
+                catch (android.content.ActivityNotFoundException | SecurityException unavailable) {
+                    android.widget.Toast.makeText(context,"系统未提供此设置页",android.widget.Toast.LENGTH_SHORT).show();
+                }
+            }
+        }});
+    }
+
+    private void refreshBattery() {
+        Context context = getContext();
+        Intent battery = context.registerReceiver(null, new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        int level = battery == null ? -1 : battery.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL,-1);
+        int scale = battery == null ? 0 : battery.getIntExtra(android.os.BatteryManager.EXTRA_SCALE,0);
+        fraction = level < 0 || scale <= 0 ? 0f : Math.min(1f,level/(float)scale);
+        reading = level < 0 || scale <= 0 ? "—" : Math.round(fraction*100)+"%";
+        int status = battery == null ? 0 : battery.getIntExtra(android.os.BatteryManager.EXTRA_STATUS,0);
+        detail = status == android.os.BatteryManager.BATTERY_STATUS_FULL ? "已充满"
+                : status == android.os.BatteryManager.BATTERY_STATUS_CHARGING ? "正在充电" : "剩余电量";
+        setContentDescription(TabletTileLibrary.NAMES[kind] + "，" + reading + "，" + detail);
+    }
+
+    private void refreshStorage() {
+        if (readingStorage) return;
+        readingStorage = true;
+        final Context context = getContext().getApplicationContext();
+        tileWorker.execute(new Runnable() { public void run() {
+            android.os.StatFs data = new android.os.StatFs(android.os.Environment.getDataDirectory().getPath());
+            long total = data.getTotalBytes(), free = data.getAvailableBytes();
+            String caption = "数据分区可用 · 共 ";
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                android.app.usage.StorageStatsManager stats = context.getSystemService(android.app.usage.StorageStatsManager.class);
+                if (stats != null) try {
+                    java.util.UUID volume = android.os.storage.StorageManager.UUID_DEFAULT;
+                    long volumeTotal = stats.getTotalBytes(volume);
+                    long volumeFree = stats.getFreeBytes(volume);
+                    if (volumeTotal > 0 && volumeFree >= 0 && volumeFree <= volumeTotal) {
+                        total = volumeTotal; free = volumeFree; caption = "可用空间 · 共 ";
+                    }
+                } catch (IOException | SecurityException unavailable) { /* Use the data partition. */ }
+            }
+            final String formatted = android.text.format.Formatter.formatShortFileSize(context, free);
+            final String description = caption + android.text.format.Formatter.formatShortFileSize(context, total);
+            final float used = total > 0 ? 1f - free/(float)total : 0f;
+            post(new Runnable() { public void run() {
+                readingStorage = false;
+                reading = formatted; detail = description; fraction = used;
+                setContentDescription("存储空间，" + reading + "，" + detail);
+                invalidate();
+            }});
         }});
     }
 
@@ -153,7 +210,21 @@ final class TabletTile extends View {
         if (paper) calendar(c,w,h,now);
         else if (kind==CLOCK) clock(c,w,h,now);
         else if (kind==MUSIC) music(c,w,h);
-        else weather(c,w,h);
+        else if (kind==WEATHER) weather(c,w,h);
+        else meter(c,w,h);
+    }
+
+    private void meter(Canvas c,float w,float h) {
+        float pad=Math.min(Math.min(w,h)*.12f,20*density);
+        float labelSize=Math.min(14*density,Math.min(w*.09f,h*.12f));
+        float valueSize=Math.min(44*density,Math.min(w*.20f,h*.34f));
+        text(c,TabletTileLibrary.NAMES[kind],pad,pad+labelSize,labelSize,0xffd4d7d9,false,Paint.Align.LEFT);
+        text(c,fit(reading,w-2*pad,valueSize,true),pad,h*.58f,valueSize,0xfff5f3ef,true,Paint.Align.LEFT);
+        text(c,fit(detail,w-2*pad,labelSize,false),pad,h*.77f,labelSize,0xffd4d7d9,false,Paint.Align.LEFT);
+        float y=h-pad, thickness=Math.max(2*density,h*.022f);
+        paint.setColor(0xff25292c); c.drawRoundRect(pad,y,w-pad,y+thickness,thickness,thickness,paint);
+        paint.setColor(kind==BATTERY?0xff91b995:0xff8faac3);
+        c.drawRoundRect(pad,y,pad+(w-2*pad)*fraction,y+thickness,thickness,thickness,paint);
     }
 
     private void calendar(Canvas c,float w,float h,Calendar now) {

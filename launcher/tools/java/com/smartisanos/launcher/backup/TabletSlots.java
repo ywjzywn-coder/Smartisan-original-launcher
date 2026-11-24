@@ -1,6 +1,8 @@
 package com.smartisanos.launcher.backup;
 
 import android.content.ContentValues;
+import android.content.ComponentName;
+import android.content.SharedPreferences;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -18,7 +20,9 @@ public final class TabletSlots {
     public static final String SHOW = "tablet_home_tiles";
     public static final String MUSIC = "tablet_music_tile";
     public static final String POSITIONS = "tablet_tile_positions_v3";
-    public static final int KINDS = 4;
+    public static final int KINDS = 6;
+    private static final String PIN_TARGET = "tablet_pending_pin";
+    private static final String PIN_USER = "tablet_pending_pin_user";
 
     private static volatile int homeMask;
 
@@ -108,6 +112,7 @@ public final class TabletSlots {
         if (!prefs.contains(SHOW)) prefs.edit().putBoolean(SHOW, fresh).apply();
         int count = MaintainedLauncherSettingsHost.resolvePortLauncherMode(context,12);
         int reserved = mask(count, positions(prefs));
+        applyPendingPin(context, prefs, reserved);
         if (reserved==0) return;
         try {
             SQLiteDatabase db = LayoutSnapshotExporter.database(true);
@@ -121,6 +126,80 @@ public final class TabletSlots {
         } catch (Exception error) {
             Log.w("TabletSlots","Could not reserve home tiles",error);
         }
+    }
+
+    public static String requestPin(Context context, ComponentName target, int user, int pinned) {
+        if (pinned >= TabletLayout.dockCapacity(context.getResources().getConfiguration()))
+            return "常驻栏已满，请先把一个常驻应用拖回桌面";
+        SharedPreferences prefs = context.getSharedPreferences(PREF, 0);
+        if (prefs.contains(PIN_TARGET)) return "常驻栏正在更新";
+        if (!prefs.edit().putString(PIN_TARGET, target.flattenToString()).putInt(PIN_USER, user).commit())
+            return "未能保存固定请求";
+        if (com.smartisanos.launcher.reload.LauncherColdReloadCoordinator.beginTabletTilesReload(context))
+            return null;
+        prefs.edit().remove(PIN_TARGET).remove(PIN_USER).commit();
+        return "桌面正在更新，请稍后再试";
+    }
+
+    // Move the original row before the native model loads, so a stale scene cannot overwrite it.
+    private static void applyPendingPin(Context context, SharedPreferences prefs, int reserved) {
+        String token = prefs.getString(PIN_TARGET, null);
+        if (token == null) return;
+        ComponentName target = ComponentName.unflattenFromString(token);
+        String message = null;
+        try {
+            SQLiteDatabase db = LayoutSnapshotExporter.database(true);
+            db.beginTransaction();
+            try {
+                int capacity = TabletLayout.dockCapacity(context.getResources().getConfiguration());
+                message = moveToDock(db, target, prefs.getInt(PIN_USER, 0), capacity, reserved);
+                db.setTransactionSuccessful();
+            } finally { db.endTransaction(); }
+        } catch (Exception error) {
+            Log.w("TabletSlots", "Could not pin recent app", error);
+            message = "未能固定应用，请重试";
+        }
+        prefs.edit().remove(PIN_TARGET).remove(PIN_USER).commit();
+        if (message != null) {
+            final String feedback = message;
+            new android.os.Handler(context.getMainLooper()).post(new Runnable() { public void run() {
+                android.widget.Toast.makeText(context, feedback, android.widget.Toast.LENGTH_LONG).show();
+            }});
+        }
+    }
+
+    private static String moveToDock(SQLiteDatabase db, ComponentName target, int user,
+            int capacity, int reserved) {
+        if (target == null) return "应用已不可用";
+        String[] args = {target.getPackageName(), target.getClassName(), String.valueOf(user)};
+        long id, folder;
+        int page, cell;
+        try (Cursor c = db.rawQuery("SELECT i._id,i.pageIndex,i.cellIndex,i.folderIndex FROM table_iteminfos i "
+                + "LEFT JOIN table_pageinfos p ON i.pageIndex=p.pageIndex WHERE i.packageName=? "
+                + "AND i.componentName=? AND i.user=? AND i.itemType=0 AND "
+                + "(i.pageIndex=-2 OR (i.pageIndex>=0 AND p.status=0)) ORDER BY i.pageIndex LIMIT 1", args)) {
+            if (!c.moveToFirst()) return "原位置已变更，请重新选择应用";
+            id=c.getLong(0); page=c.getInt(1); cell=c.getInt(2); folder=c.getLong(3);
+        }
+        if (page == -2) return null; // Recover an already committed move.
+        if (!mayShowRecent(target.getPackageName(), target.getClassName(), user))
+            return "应用当前不可固定";
+        long next = android.database.DatabaseUtils.longForQuery(db,
+                "SELECT coalesce(max(cellIndex),-1)+1 FROM table_iteminfos WHERE pageIndex=-2 AND folderIndex<=0",null);
+        if (next >= capacity) return "常驻栏已满";
+        if (folder > 0 && android.database.DatabaseUtils.longForQuery(db,
+                "SELECT count(*) FROM table_iteminfos WHERE folderIndex=?", new String[]{String.valueOf(folder)}) == 1)
+            return "请先把此应用拖出文件夹，再固定到常驻栏";
+        db.execSQL("UPDATE table_iteminfos SET pageIndex=-2,cellIndex=?,folderIndex=-1 WHERE _id=?",
+                new Object[]{next,id});
+        if (folder > 0) {
+            db.execSQL("UPDATE table_iteminfos SET cellIndex=cellIndex-1 WHERE folderIndex=? AND cellIndex>?",
+                    new Object[]{folder,cell});
+        } else if (page != 0 || reserved == 0) {
+            db.execSQL("UPDATE table_iteminfos SET cellIndex=cellIndex-1 WHERE pageIndex=? AND folderIndex<=0 AND cellIndex>?",
+                    new Object[]{page,cell});
+        }
+        return null;
     }
 
     /** An app is eligible only while it is on an ordinary unlocked page. */
