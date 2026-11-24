@@ -3998,6 +3998,7 @@ public final class MaintainedLauncherSettingsHost {
     }
 
     public static boolean onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
+        if(com.smartisanos.launcher.quickdesktop.TabletPhoto.result(activity,requestCode,resultCode,data)) return true;
         if (requestCode == REQUEST_PICK_ICONHUB) {
             onIconHubPicked(activity, resultCode, data);
             return true;

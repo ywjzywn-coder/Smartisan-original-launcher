@@ -56,6 +56,7 @@ public final class TabletHome extends FrameLayout {
     private TabletHome(Context context) {
         super(context);
         prefs=context.getSharedPreferences(TabletSlots.PREF,0);
+        TabletPhoto.recover(context);
         positions=TabletSlots.positions(prefs);
         for(int k=0;k<tiles.length;k++){
             tiles[k]=new TabletTile(context,k);
@@ -263,13 +264,15 @@ public final class TabletHome extends FrameLayout {
         final Activity home=activity();
         if(home==null) return;
         MaintainedLauncherSettingsHost.showSmartisanSingleChoiceDialog(home,TabletTileLibrary.NAMES[tile.kind],
-                new String[]{"调整位置","移除组件","添加组件"},-1,
+                tile.kind==TabletTile.PHOTO?new String[]{"调整位置","移除组件","添加组件","更换照片"}
+                        :new String[]{"调整位置","移除组件","添加组件"},-1,
                 new MaintainedLauncherSettingsHost.SingleChoiceListener() {
                     public void onSelected(int index) {
                         if(index==1) {
                             int layout=TabletSlots.positions(prefs);
                             TabletTileLibrary.apply(home,prefs,layout,TabletSlots.put(layout,tile.kind,-1));
-                        } else openLibrary(index==0?tile.kind:-1);
+                        } else if(index==3) TabletPhoto.choose(home,TabletPhoto.REPLACE);
+                        else openLibrary(index==0?tile.kind:-1);
                     }
                 });
     }

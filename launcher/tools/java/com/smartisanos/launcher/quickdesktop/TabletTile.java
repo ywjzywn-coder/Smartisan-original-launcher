@@ -17,7 +17,7 @@ import java.util.Locale;
 
 /** Live artwork sized to whole Smartisan cells. */
 final class TabletTile extends View {
-    static final int CALENDAR = 0, CLOCK = 1, MUSIC = 2, WEATHER = 3, BATTERY = 4, STORAGE = 5;
+    static final int CALENDAR = 0, CLOCK = 1, MUSIC = 2, WEATHER = 3, BATTERY = 4, STORAGE = 5, PHOTO = 6;
     final int kind;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
     private final float density;
@@ -29,6 +29,14 @@ final class TabletTile extends View {
     private String nextAlarm;
     private String reading = "—", detail = "";
     private float fraction;
+    private Bitmap photo;
+    private String photoName;
+    private final android.content.SharedPreferences.OnSharedPreferenceChangeListener photoChanges =
+            new android.content.SharedPreferences.OnSharedPreferenceChangeListener(){
+        public void onSharedPreferenceChanged(android.content.SharedPreferences prefs,String key) {
+            if(TabletPhoto.KEY.equals(key)) refreshPhoto();
+        }
+    };
     private Bundle forecast;
     private Bitmap sky;
     private String skyArt;
@@ -60,6 +68,7 @@ final class TabletTile extends View {
         public void run() {
             removeCallbacks(this);
             if (!isShown() || !hasWindowFocus()) return;
+            if (kind == PHOTO) refreshPhoto();
             if (kind == MUSIC) refreshMedia();
             if (kind == BATTERY) refreshBattery();
             if (kind == STORAGE) refreshStorage();
@@ -118,6 +127,12 @@ final class TabletTile extends View {
         }
         setContentDescription(TabletTileLibrary.NAMES[kind]);
         setOnClickListener(new OnClickListener() { public void onClick(View v) {
+            if (kind==PHOTO) {
+                Context host=context;
+                while(host instanceof android.content.ContextWrapper && !(host instanceof android.app.Activity))
+                    host=((android.content.ContextWrapper)host).getBaseContext();
+                if(host instanceof android.app.Activity) TabletPhoto.choose((android.app.Activity)host,TabletPhoto.REPLACE);
+            }
             if (kind == CALENDAR && !QuickDesktopActions.openCalendar(context)) QuickDesktopActions.openShortcut(context,1);
             if (kind == CLOCK) QuickDesktopActions.openShortcut(context,5);
             if (kind == MUSIC) {
@@ -201,10 +216,12 @@ final class TabletTile extends View {
     }
     @Override protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+        if(kind==PHOTO) photoPrefs().registerOnSharedPreferenceChangeListener(photoChanges);
         if(kind==BATTERY) getContext().registerReceiver(batteryListener,new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         post(refresh);
     }
     @Override protected void onDetachedFromWindow() {
+        if(kind==PHOTO) {photoPrefs().unregisterOnSharedPreferenceChangeListener(photoChanges);photo=null;photoName=null;}
         if(kind==BATTERY) getContext().unregisterReceiver(batteryListener);
         removeCallbacks(refresh);
         instruments.release();
@@ -226,8 +243,59 @@ final class TabletTile extends View {
         else if (kind==CLOCK) clock(c,w,h,Calendar.getInstance());
         else if (kind==MUSIC) music(c,w,h);
         else if (kind==WEATHER) weather(c,w,h);
+        else if (kind==PHOTO) drawFrame(c,w,h);
         else if(kind==BATTERY) battery(c,w,h);
         else drive(c,w,h);
+    }
+
+    private android.content.SharedPreferences photoPrefs() {
+        return getContext().getSharedPreferences(com.smartisanos.launcher.backup.TabletSlots.PREF,0);
+    }
+    private void refreshPhoto() {
+        String name=photoPrefs().getString(TabletPhoto.KEY,null);
+        if(android.text.TextUtils.equals(photoName,name)) return;
+        photoName=name;photo=null;
+        if(name!=null) TabletPhoto.load(this,name);
+        else setContentDescription("照片");
+        invalidate();
+    }
+    void photoLoaded(String name,Bitmap bitmap) {
+        if(!name.equals(photoName) || !isAttachedToWindow()) return;
+        photo=bitmap;
+        setContentDescription(bitmap==null?"照片，点按重新选择":"照片，自定义相框");
+        invalidate();
+    }
+    private void drawFrame(Canvas c,float w,float h) {
+        float edge=Math.min(w,h),rail=Math.max(2,edge*.032f),mat=Math.max(2,edge*.034f);
+        c.drawColor(0xff544a40);
+        paint.setColor(0xffa39785);c.drawRect(0,0,w,rail*.58f,paint);
+        paint.setColor(0xff342e2a);c.drawRect(0,h-rail*.58f,w,h,paint);
+        paint.setColor(0xffe9e5d8);c.drawRect(rail,rail,w-rail,h-rail,paint);
+        float inset=rail+mat;
+        RectF window=new RectF(inset,inset,w-inset,h-inset);
+        if(window.width()<1 || window.height()<1) return;
+        if(photo!=null) {
+            float scale=Math.max(window.width()/photo.getWidth(),window.height()/photo.getHeight());
+            float sw=window.width()/scale,sh=window.height()/scale;
+            int left=Math.max(0,(int)((photo.getWidth()-sw)/2)),top=Math.max(0,(int)((photo.getHeight()-sh)/2));
+            Rect src=new Rect(left,top,Math.min(photo.getWidth(),left+Math.max(1,Math.round(sw))),
+                    Math.min(photo.getHeight(),top+Math.max(1,Math.round(sh))));
+            paint.setColor(-1);paint.setFilterBitmap(true);
+            c.drawBitmap(photo,src,window,paint);
+        } else {
+            // A landscape motif makes the empty frame recognizable in the gallery.
+            c.save();c.clipRect(window);
+            paint.setColor(0xffbccdd0);c.drawRect(window,paint);
+            paint.setColor(0xfff2deb1);c.drawCircle(w*.70f,h*.31f,edge*.094f,paint);
+            Path ridge=new Path();ridge.moveTo(0,h*.84f);ridge.lineTo(w*.32f,h*.34f);
+            ridge.lineTo(w*.65f,h*.76f);ridge.lineTo(w*.84f,h*.47f);ridge.lineTo(w,h*.63f);
+            ridge.lineTo(w,h);ridge.lineTo(0,h);ridge.close();
+            paint.setColor(0xff708c8a);c.drawPath(ridge,paint);
+            ridge.reset();ridge.moveTo(0,h*.72f);ridge.quadTo(w*.28f,h*.57f,w*.52f,h*.78f);
+            ridge.quadTo(w*.72f,h*.86f,w,h*.64f);ridge.lineTo(w,h);ridge.lineTo(0,h);ridge.close();
+            paint.setColor(0xff4c6869);c.drawPath(ridge,paint);c.restore();
+        }
+        paint.setColor(0x4d282321);c.drawRect(window.left,window.top,window.right,window.top+Math.max(1,edge*.008f),paint);
     }
 
     private void battery(Canvas c,float w,float h) {

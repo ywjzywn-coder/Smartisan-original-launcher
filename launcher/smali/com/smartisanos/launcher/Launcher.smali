@@ -53,6 +53,10 @@
 .method public onActivityResult(IILandroid/content/Intent;)V
     .locals 1
 
+    invoke-static {p0,p1,p2,p3}, Lcom/smartisanos/launcher/quickdesktop/TabletPhoto;->result(Landroid/app/Activity;IILandroid/content/Intent;)Z
+    move-result v0
+    if-nez v0, :settings_overlay_result_consumed
+
     invoke-static {p0}, Lcom/smartisanos/launcher/theme/LauncherSettingsOverlayHost;->isShowing(Landroid/app/Activity;)Z
 
     move-result v0

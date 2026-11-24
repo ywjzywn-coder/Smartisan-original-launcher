@@ -21,7 +21,7 @@ import static com.smartisanos.launcher.theme.MaintainedLauncherSettingsHost.*;
 
 /** Browse the same artwork as HOME, then add to a free slot or pick a placement. */
 final class TabletTileLibrary {
-    static final String[] NAMES={"日历","时钟","音乐","天气","电量","存储空间"};
+    static final String[] NAMES={"日历","时钟","音乐","天气","电量","存储空间","照片"};
     private final Activity activity;
     private final Dialog dialog;
     private final SharedPreferences prefs;
@@ -139,7 +139,14 @@ final class TabletTileLibrary {
         for(int start=0;start<NAMES.length;start+=columns) {
             LinearLayout row=new LinearLayout(activity);
             list.addView(row,new LinearLayout.LayoutParams(-1,dp(land?194:174),1));
-            for(int k=start;k<Math.min(start+columns,NAMES.length);k++) buildCard(row,k);
+            for(int k=start;k<start+columns;k++) {
+                if(k<NAMES.length) buildCard(row,k);
+                else {
+                    LinearLayout.LayoutParams spacer=new LinearLayout.LayoutParams(0,1,1);
+                    spacer.setMargins(dp(5),0,dp(5),0);
+                    row.addView(new View(activity),spacer);
+                }
+            }
         }
     }
 
@@ -206,7 +213,7 @@ final class TabletTileLibrary {
         boolean hasRoom=added || freeSlot(selected)>=0;
         secondary.setText(placement?"返回组件库":added?"移除组件":"选择位置");
         secondary.setEnabled(placement || hasRoom);
-        primary.setText(placement?"完成":added?"调整位置":hasRoom?"添加到桌面":"位置已满");
+        primary.setText(placement?"完成":added?"调整位置":hasRoom?(selected==TabletTile.PHOTO?"选照片并添加":"添加到桌面"):"位置已满");
         primary.setEnabled(placement?draft!=original:hasRoom);
         primary.setAlpha(primary.isEnabled()?1f:.5f);
         secondary.setAlpha(secondary.isEnabled()?1f:.5f);
@@ -264,21 +271,38 @@ final class TabletTileLibrary {
     }
     private void save(){
         if(draft==original){dialog.dismiss();return;}
+        int photoSlot=TabletSlots.slot(draft,TabletTile.PHOTO);
+        if(photoSlot>=0 && TabletSlots.slot(original,TabletTile.PHOTO)<0){
+            if(TabletPhoto.choose(activity,photoSlot)) dialog.dismiss();
+            return;
+        }
         if(apply(activity,prefs,original,draft)) dialog.dismiss();
     }
 
     static boolean apply(Activity activity,SharedPreferences prefs,int original,int draft){
+        String image=TabletSlots.slot(draft,TabletTile.PHOTO)<0?null:prefs.getString(TabletPhoto.KEY,null);
+        return apply(activity,prefs,original,draft,image);
+    }
+    static boolean apply(Activity activity,SharedPreferences prefs,int original,int draft,String image){
         if(TabletSlots.positions(prefs)!=original) {
             Toast.makeText(activity,"组件位置已改变，请重新选择",Toast.LENGTH_SHORT).show();
             return false;
         }
         boolean had=prefs.contains(TabletSlots.POSITIONS);
         boolean enabled=prefs.getBoolean(TabletSlots.SHOW,false);
-        if(!prefs.edit().putInt(TabletSlots.POSITIONS,draft).putBoolean(TabletSlots.SHOW,draft!=0).commit())return false;
-        if(LauncherColdReloadCoordinator.beginTabletTilesReload(activity))return true;
+        String oldImage=prefs.getString(TabletPhoto.KEY,null);
+        SharedPreferences.Editor edit=prefs.edit().putString(TabletPhoto.KEY,image);
+        if(!edit.putInt(TabletSlots.POSITIONS,draft).putBoolean(TabletSlots.SHOW,draft!=0).commit()) {
+            Toast.makeText(activity,"未能保存组件",Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        if(original==draft || LauncherColdReloadCoordinator.beginTabletTilesReload(activity)){
+            if(!android.text.TextUtils.equals(oldImage,image)) TabletPhoto.forget(activity,oldImage);
+            return true;
+        }
         SharedPreferences.Editor undo=prefs.edit().putBoolean(TabletSlots.SHOW,enabled);
         if(had) undo.putInt(TabletSlots.POSITIONS,original);else undo.remove(TabletSlots.POSITIONS);
-        undo.commit();
+        undo.putString(TabletPhoto.KEY,oldImage).commit();
         Toast.makeText(activity,"桌面正在更新，请稍后再试",Toast.LENGTH_SHORT).show();
         return false;
     }

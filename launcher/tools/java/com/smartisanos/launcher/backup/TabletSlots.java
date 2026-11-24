@@ -20,7 +20,7 @@ public final class TabletSlots {
     public static final String SHOW = "tablet_home_tiles";
     public static final String MUSIC = "tablet_music_tile";
     public static final String POSITIONS = "tablet_tile_positions_v3";
-    public static final int KINDS = 6;
+    public static final int KINDS = 7;
     private static final String PIN_TARGET = "tablet_pending_pin";
     private static final String PIN_USER = "tablet_pending_pin_user";
 
