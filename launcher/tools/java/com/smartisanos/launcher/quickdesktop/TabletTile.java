@@ -17,7 +17,7 @@ import java.util.Locale;
 
 /** Live artwork sized to whole Smartisan cells. */
 final class TabletTile extends View {
-    static final int CALENDAR = 0, CLOCK = 1, MUSIC = 2, WEATHER = 3, BATTERY = 4, STORAGE = 5, PHOTO = 6;
+    static final int CALENDAR = 0, CLOCK = 1, MUSIC = 2, WEATHER = 3, BATTERY = 4, DEVICE = 5, PHOTO = 6;
     final int kind;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
     private final float density;
@@ -25,9 +25,10 @@ final class TabletTile extends View {
     private static final java.util.concurrent.ExecutorService tileWorker =
             java.util.concurrent.Executors.newSingleThreadExecutor();
     private boolean readingMedia;
-    private boolean readingStorage;
     private String nextAlarm;
     private String reading = "—", detail = "";
+    private String deviceName = "本机", deviceModel = "";
+    private static final String ANDROID_VERSION = "Android " + android.os.Build.VERSION.RELEASE;
     private float fraction;
     private Bitmap photo;
     private String photoName;
@@ -71,7 +72,7 @@ final class TabletTile extends View {
             if (kind == PHOTO) refreshPhoto();
             if (kind == MUSIC) refreshMedia();
             if (kind == BATTERY) refreshBattery();
-            if (kind == STORAGE) refreshStorage();
+            if (kind == DEVICE) refreshDevice();
             if (kind == WEATHER) refreshWeather();
             if (kind == CALENDAR) {
                 int day=Calendar.getInstance().get(Calendar.DAY_OF_MONTH);
@@ -87,6 +88,7 @@ final class TabletTile extends View {
                         .format(new Date(next.getTriggerTime()));
             }
             invalidate();
+            if (kind == BATTERY || kind == PHOTO || kind == DEVICE) return;
             postDelayed(this, kind == MUSIC ? 5000 : 60010 - System.currentTimeMillis()%60000);
         }
     };
@@ -143,15 +145,15 @@ final class TabletTile extends View {
                 } else if (track!=null && !track.notificationAccess) {
                     try {context.startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));}
-                    catch(android.content.ActivityNotFoundException missing){ QuickDesktopActions.openMusic(context); }
+                    catch(android.content.ActivityNotFoundException | SecurityException missing){ QuickDesktopActions.openMusic(context); }
                 } else QuickDesktopActions.openMusic(context);
             }
             if (kind==WEATHER) context.startActivity(new Intent("com.smartisanos.launcher.WEATHER_SETTINGS")
                     .setClassName(context.getPackageName(),"com.smartisanos.launcher.theme.ThemeChooserActivity")
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-            if (kind == BATTERY || kind == STORAGE) {
+            if (kind == BATTERY || kind == DEVICE) {
                 String action = kind == BATTERY ? Intent.ACTION_POWER_USAGE_SUMMARY
-                        : android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS;
+                        : android.provider.Settings.ACTION_DEVICE_INFO_SETTINGS;
                 try { context.startActivity(new Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
                 catch (android.content.ActivityNotFoundException | SecurityException unavailable) {
                     android.widget.Toast.makeText(context,"系统未提供此设置页",android.widget.Toast.LENGTH_SHORT).show();
@@ -178,35 +180,19 @@ final class TabletTile extends View {
         setContentDescription(TabletTileLibrary.NAMES[kind] + "，" + reading + "，" + detail);
     }
 
-    private void refreshStorage() {
-        if (readingStorage) return;
-        readingStorage = true;
-        final Context context = getContext().getApplicationContext();
-        tileWorker.execute(new Runnable() { public void run() {
-            android.os.StatFs data = new android.os.StatFs(android.os.Environment.getDataDirectory().getPath());
-            long total = data.getTotalBytes(), free = data.getAvailableBytes();
-            String caption = "数据分区可用 · 共 ";
-            if (android.os.Build.VERSION.SDK_INT >= 26) {
-                android.app.usage.StorageStatsManager stats = context.getSystemService(android.app.usage.StorageStatsManager.class);
-                if (stats != null) try {
-                    java.util.UUID volume = android.os.storage.StorageManager.UUID_DEFAULT;
-                    long volumeTotal = stats.getTotalBytes(volume);
-                    long volumeFree = stats.getFreeBytes(volume);
-                    if (volumeTotal > 0 && volumeFree >= 0 && volumeFree <= volumeTotal) {
-                        total = volumeTotal; free = volumeFree; caption = "可用空间 · 共 ";
-                    }
-                } catch (IOException | SecurityException unavailable) { /* Use the data partition. */ }
-            }
-            final String formatted = android.text.format.Formatter.formatShortFileSize(context, free);
-            final String description = caption + android.text.format.Formatter.formatShortFileSize(context, total);
-            final float used = total > 0 ? 1f - free/(float)total : 0f;
-            post(new Runnable() { public void run() {
-                readingStorage = false;
-                reading = formatted; detail = description; fraction = used;
-                setContentDescription("存储空间，" + reading + "，" + detail);
-                invalidate();
-            }});
-        }});
+    private void refreshDevice() {
+        String model = android.os.Build.MODEL == null ? "" : android.os.Build.MODEL.trim();
+        deviceName = model.isEmpty() ? "本机" : model;
+        if (android.os.Build.VERSION.SDK_INT >= 25) {
+            try {
+                String name = android.provider.Settings.Global.getString(
+                        getContext().getContentResolver(), android.provider.Settings.Global.DEVICE_NAME);
+                if (name != null && !name.trim().isEmpty()) deviceName = name.trim();
+            } catch (SecurityException restricted) { /* This ROM only exposes the model. */ }
+        }
+        deviceModel = model.equalsIgnoreCase(deviceName) ? "" : model;
+        setContentDescription("设备信息，" + deviceName + "，"
+                + (deviceModel.isEmpty() ? "" : deviceModel + "，") + ANDROID_VERSION);
     }
 
     @Override public void onWindowFocusChanged(boolean focus) { super.onWindowFocusChanged(focus); refresh.run(); }
@@ -248,7 +234,7 @@ final class TabletTile extends View {
         else if (kind==MUSIC) music(c,w,h);
         else if (kind==WEATHER) weather(c,w,h);
         else if (kind==PHOTO) drawFrame(c,w,h);
-        else drive(c,w,h);
+        else if (kind==DEVICE) device(c,w,h);
     }
 
     private android.content.SharedPreferences photoPrefs() {
@@ -316,24 +302,19 @@ final class TabletTile extends View {
         paint.clearShadowLayer();
     }
 
-    private void drive(Canvas c,float w,float h) {
-        instruments.draw(c,getWidth(),getHeight(),kind,0);
-        boolean wide=w>h;
-        float u=Math.min(w,h), left=(wide?w*.465f:u*.086f)+u*.046f;
-        float right=w-u*.128f,room=right-left;
-        float top=wide?h*.113f:h*.54f,bottom=h-u*.108f,panel=bottom-top;
-        float small=Math.min(15*density,Math.min(room*.13f,panel*.135f));
-        text(c,"可用空间",left,top+panel*.22f,small,0xff535952,true,Paint.Align.LEFT);
-        float size=Math.min(47*density,Math.min(room*.245f,panel*.35f));
-        text(c,fit(reading,room,size,true),left,top+panel*.60f,size,0xff252b29,true,Paint.Align.LEFT);
-        String capacity=detail.replace("可用空间 · ","").replace("数据分区可用 · ","数据分区");
-        text(c,fit(capacity,room,small,false),left,top+panel*.81f,small,0xff555b54,false,Paint.Align.LEFT);
-        float pitch=room/20f;
-        int used=Math.round(fraction*20);
-        for(int i=0;i<20;i++) {
-            paint.setColor(i<used?0xff596b6c:0xffb9bcb2);
-            c.drawRect(left+i*pitch,top+panel*.895f,left+(i+.83f)*pitch,top+panel*.93f,paint);
-        }
+    private void device(Canvas c,float w,float h) {
+        float unit = Math.min(w,h);
+        float pad = Math.min(24*density, unit*.12f);
+        float room = w - 2*pad;
+        c.drawColor(0xffeeebe4);
+        paint.setColor(0xffbdc0ba);
+        c.drawRect(pad,h*.31f,w-pad,h*.31f+Math.max(1,density*.5f),paint);
+        float small = Math.min(15*density,unit*.089f);
+        float title = Math.min(34*density,unit*.20f);
+        text(c,"本机",pad,h*.31f-small*.50f,small,0xff646f70,true,Paint.Align.LEFT);
+        text(c,fit(deviceName,room,title,true),pad,h*.61f,title,0xff343b3b,true,Paint.Align.LEFT);
+        String summary = deviceModel.isEmpty() ? ANDROID_VERSION : deviceModel + "  ·  " + ANDROID_VERSION;
+        text(c,fit(summary,room,small,false),pad,h*.82f,small,0xff535d5c,false,Paint.Align.LEFT);
     }
 
     private void calendar(Canvas c,float w,float h,Calendar now) {

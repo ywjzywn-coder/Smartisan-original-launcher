@@ -340,6 +340,12 @@ public final class TabletHome extends FrameLayout {
         worker.execute(new Runnable() { public void run() {
             List<RecentApp> entries=new ArrayList<>();
             LauncherApps apps=(LauncherApps)app.getSystemService(Context.LAUNCHER_APPS_SERVICE);
+            List<UserHandle> profiles;
+            try {
+                profiles = MaintainedLauncherSettingsHost.launcherProfiles(app, apps);
+            } catch (SecurityException restricted) {
+                profiles = Collections.singletonList(android.os.Process.myUserHandle());
+            }
             for(String token:history.split("\n")) {
                 int split=token.indexOf('|');
                 if(split<=0 || apps==null) continue;
@@ -347,7 +353,7 @@ public final class TabletHome extends FrameLayout {
                     int user=Integer.parseInt(token.substring(0,split));
                     ComponentName cn=ComponentName.unflattenFromString(token.substring(split+1));
                     if(cn==null || !TabletSlots.mayShowRecent(cn.getPackageName(),cn.getClassName(),user)) continue;
-                    for(UserHandle profile:apps.getProfiles()) {
+                    for(UserHandle profile:profiles) {
                         for(LauncherActivityInfo info:apps.getActivityList(cn.getPackageName(),profile)) {
                             if(!info.getComponentName().equals(cn) || info.getApplicationInfo().uid/100000!=user) continue;
                             RecentApp item=new RecentApp();

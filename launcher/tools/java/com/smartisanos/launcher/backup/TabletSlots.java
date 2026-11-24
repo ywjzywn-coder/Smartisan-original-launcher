@@ -19,12 +19,15 @@ public final class TabletSlots {
     public static final String PREF = "launcher_settings";
     public static final String SHOW = "tablet_home_tiles";
     public static final String MUSIC = "tablet_music_tile";
-    public static final String POSITIONS = "tablet_tile_positions_v3";
+    public static final String POSITIONS = "tablet_tile_positions_v4";
+    private static final String LEGACY_POSITIONS = "tablet_tile_positions_v3";
     public static final int KINDS = 7;
     private static final String PIN_TARGET = "tablet_pending_pin";
     private static final String PIN_USER = "tablet_pending_pin_user";
 
     private static volatile int homeMask;
+
+    public static int reservedHomeMask() { return homeMask; }
 
     public static boolean keepCellIndices(int page) { return page==0 && homeMask!=0; }
 
@@ -44,6 +47,8 @@ public final class TabletSlots {
 
     public static int positions(android.content.SharedPreferences prefs) {
         if (prefs.contains(POSITIONS)) return prefs.getInt(POSITIONS, 0);
+        // Kind 5 formerly held storage. Preserve every other saved placement, including photos.
+        if (prefs.contains(LEGACY_POSITIONS)) return put(prefs.getInt(LEGACY_POSITIONS,0),5,-1);
         if (!prefs.getBoolean(SHOW,false)) return 0;
         return put(put(0,0,0), prefs.getBoolean(MUSIC,false) ? 2 : 1, 2);
     }

@@ -482,7 +482,7 @@ if exist "%ROOT%launcher\tools\java" (
   )
   popd
 
-  call "%D8%" --min-api 23 --classpath "%ANDROID_JAR%" --output "%BUILD_SCRATCH%\dex" "%BUILD_SCRATCH%\helpers.jar"
+  call "%D8%" --min-api 23 --lib "%ANDROID_JAR%" --output "%BUILD_SCRATCH%\dex" "%BUILD_SCRATCH%\helpers.jar"
   if errorlevel 1 (
     echo FAIL: d8 migrated settings host failed.
     exit /b 1

@@ -1113,7 +1113,7 @@ public final class MaintainedLauncherSettingsHost {
                 Context context = currentApplicationContext();
                 LauncherApps launcherApps = context == null ? null
                         : (LauncherApps) context.getSystemService(Context.LAUNCHER_APPS_SERVICE);
-                List<UserHandle> profiles = launcherApps == null ? null : launcherApps.getProfiles();
+                List<UserHandle> profiles = launcherProfiles(context, launcherApps);
                 if (profiles != null) {
                     for (UserHandle profile : profiles) {
                         if (profile == null || userIdentifier(profile) != userId) {
@@ -1158,6 +1158,13 @@ public final class MaintainedLauncherSettingsHost {
         return out;
     }
 
+    public static List<UserHandle> launcherProfiles(Context context, LauncherApps apps) {
+        if (apps == null) return java.util.Collections.emptyList();
+        if (Build.VERSION.SDK_INT >= 26) return apps.getProfiles();
+        android.os.UserManager users = (android.os.UserManager) context.getSystemService(Context.USER_SERVICE);
+        return users == null ? java.util.Collections.singletonList(Process.myUserHandle()) : users.getUserProfiles();
+    }
+
     public static List queryProfileLauncherActivities(Context context, String packageName, int userId) {
         ArrayList out = new ArrayList();
         if (context == null || TextUtils.isEmpty(packageName) || userId <= 0
@@ -1167,7 +1174,7 @@ public final class MaintainedLauncherSettingsHost {
         try {
             LauncherApps launcherApps =
                     (LauncherApps) context.getSystemService(Context.LAUNCHER_APPS_SERVICE);
-            List<UserHandle> profiles = launcherApps == null ? null : launcherApps.getProfiles();
+            List<UserHandle> profiles = launcherProfiles(context, launcherApps);
             if (profiles == null) {
                 return out;
             }
@@ -2602,7 +2609,7 @@ public final class MaintainedLauncherSettingsHost {
             if (launcherApps == null) {
                 return;
             }
-            List<UserHandle> profiles = launcherApps.getProfiles();
+            List<UserHandle> profiles = launcherProfiles(context, launcherApps);
             if (profiles == null) {
                 return;
             }
@@ -3417,7 +3424,7 @@ public final class MaintainedLauncherSettingsHost {
         try {
             LauncherApps apps = (LauncherApps) context.getSystemService(Context.LAUNCHER_APPS_SERVICE);
             if (apps == null) return null;
-            List<UserHandle> profiles = apps.getProfiles();
+            List<UserHandle> profiles = launcherProfiles(context, apps);
             if (profiles == null) return null;
             for (UserHandle profile : profiles) {
                 if (profile == null || userIdentifier(profile) != userId) continue;
@@ -7155,7 +7162,7 @@ public final class MaintainedLauncherSettingsHost {
                 }
             }
 
-            List<UserHandle> profiles = launcherApps.getProfiles();
+            List<UserHandle> profiles = launcherProfiles(context, launcherApps);
             if (profiles == null || profiles.size() == 0) {
                 profiles = new ArrayList<UserHandle>();
                 profiles.add(Process.myUserHandle());
@@ -7228,7 +7235,7 @@ public final class MaintainedLauncherSettingsHost {
         }
         LauncherApps launcherApps = (LauncherApps) context.getSystemService(Context.LAUNCHER_APPS_SERVICE);
         if (launcherApps != null && component != null) {
-            List<UserHandle> profiles = launcherApps.getProfiles();
+            List<UserHandle> profiles = launcherProfiles(context, launcherApps);
             if (profiles != null) {
                 for (UserHandle profile : profiles) {
                     if (profile != null && userIdentifier(profile) == userId) {
@@ -7384,7 +7391,7 @@ public final class MaintainedLauncherSettingsHost {
             if (launcherApps == null) {
                 return uri;
             }
-            List<UserHandle> profiles = launcherApps.getProfiles();
+            List<UserHandle> profiles = launcherProfiles(context, launcherApps);
             if (profiles == null) {
                 return uri;
             }
@@ -7834,7 +7841,7 @@ public final class MaintainedLauncherSettingsHost {
         try {
             LauncherApps launcherApps =
                     (LauncherApps) context.getSystemService(Context.LAUNCHER_APPS_SERVICE);
-            List<UserHandle> profiles = launcherApps == null ? null : launcherApps.getProfiles();
+            List<UserHandle> profiles = launcherProfiles(context, launcherApps);
             UserHandle current = Process.myUserHandle();
             if (profiles != null) {
                 for (UserHandle profile : profiles) {
@@ -8001,7 +8008,7 @@ public final class MaintainedLauncherSettingsHost {
             if (launcherApps == null) {
                 return result;
             }
-            List<UserHandle> profiles = launcherApps.getProfiles();
+            List<UserHandle> profiles = launcherProfiles(context, launcherApps);
             logOperation(context, "PROFILE_DISCOVERY", "profiles="
                     + (profiles == null ? "null" : String.valueOf(profiles.size()))
                     + ", includeDisabled=" + includeDisabled);
@@ -8132,7 +8139,7 @@ public final class MaintainedLauncherSettingsHost {
         try {
             LauncherApps launcherApps =
                     (LauncherApps) context.getSystemService(Context.LAUNCHER_APPS_SERVICE);
-            List<UserHandle> profiles = launcherApps == null ? null : launcherApps.getProfiles();
+            List<UserHandle> profiles = launcherProfiles(context, launcherApps);
             if (profiles == null || profiles.size() <= 1) {
                 return false;
             }
@@ -15087,7 +15094,7 @@ public final class MaintainedLauncherSettingsHost {
                     + (packageManagerApps == null ? 0 : packageManagerApps.size()));
             if (Build.VERSION.SDK_INT >= 21) {
                 LauncherApps launcherApps = (LauncherApps) context.getSystemService(Context.LAUNCHER_APPS_SERVICE);
-                List<UserHandle> profiles = launcherApps == null ? null : launcherApps.getProfiles();
+                List<UserHandle> profiles = launcherProfiles(context, launcherApps);
                 logOperation(context, "APP_ENUM", "profile_count=" + (profiles == null ? 0 : profiles.size()));
                 if (launcherApps != null && profiles != null) {
                     for (UserHandle profile : profiles) {

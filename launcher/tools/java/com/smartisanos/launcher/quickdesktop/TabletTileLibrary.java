@@ -21,7 +21,7 @@ import static com.smartisanos.launcher.theme.MaintainedLauncherSettingsHost.*;
 
 /** Browse the same artwork as HOME, then add to a free slot or pick a placement. */
 final class TabletTileLibrary {
-    static final String[] NAMES={"日历","时钟","音乐","天气","电量","存储空间","照片"};
+    static final String[] NAMES={"日历","时钟","音乐","天气","电量","设备信息","照片"};
     private final Activity activity;
     private final Dialog dialog;
     private final SharedPreferences prefs;

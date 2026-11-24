@@ -776,8 +776,43 @@
     return-void
 .end method
 
+.method private static startupHomeMask()I
+    .locals 4
+
+    invoke-static {}, Lcom/smartisanos/launcher/backup/TabletSlots;->reservedHomeMask()I
+    move-result v0
+    if-eqz v0, :done
+    invoke-static {}, Lcom/smartisanos/launcher/Aa;->qc()Ljava/util/HashMap;
+    move-result-object v1
+    invoke-virtual {v1}, Ljava/util/HashMap;->values()Ljava/util/Collection;
+    move-result-object v1
+    invoke-interface {v1}, Ljava/util/Collection;->iterator()Ljava/util/Iterator;
+    move-result-object v1
+    :next
+    invoke-interface {v1}, Ljava/util/Iterator;->hasNext()Z
+    move-result v2
+    if-eqz v2, :done
+    invoke-interface {v1}, Ljava/util/Iterator;->next()Ljava/lang/Object;
+    move-result-object v2
+    check-cast v2, Lcom/smartisanos/launcher/data/ItemInfo;
+    iget v3, v2, Lcom/smartisanos/launcher/data/ItemInfo;->pageIndex:I
+    if-nez v3, :next
+    iget v3, v2, Lcom/smartisanos/launcher/data/ItemInfo;->folderIndex:I
+    if-gtz v3, :next
+    iget v2, v2, Lcom/smartisanos/launcher/data/ItemInfo;->cellIndex:I
+    if-ltz v2, :next
+    const/16 v3, 0x14
+    if-ge v2, v3, :next
+    const/4 v3, 0x1
+    shl-int/2addr v3, v2
+    or-int/2addr v0, v3
+    goto :next
+    :done
+    return v0
+.end method
+
 .method private static G(Ljava/util/List;)V
-    .locals 12
+    .locals 13
 
     if-eqz p0, :cond_14
 
@@ -1127,6 +1162,14 @@
 
     move-result v8
 
+    # The native allocator appends by item count. Page zero may instead have
+    # tile reservations and app indices with holes on either side.
+    invoke-static {}, Lcom/smartisanos/launcher/data/A;->startupHomeMask()I
+    move-result v12
+    if-eqz v12, :append_normally
+    if-nez v5, :append_normally
+    const/4 v1, 0x0
+    :append_normally
     move v9, v5
 
     move v5, v1
@@ -1148,6 +1191,20 @@
     goto :goto_5
 
     :cond_a
+    if-nez v9, :startup_cell_ready
+    if-eqz v12, :startup_cell_ready
+    :skip_claimed_home_cell
+    if-ge v5, v0, :full_home_page
+    const/4 v11, 0x1
+    shl-int/2addr v11, v5
+    and-int/2addr v11, v12
+    if-eqz v11, :startup_cell_ready
+    add-int/lit8 v5, v5, 0x1
+    goto :skip_claimed_home_cell
+    :full_home_page
+    const/4 v9, 0x1
+    const/4 v5, 0x0
+    :startup_cell_ready
     if-nez v5, :cond_c
 
     if-lt v9, v8, :cond_b
@@ -1970,6 +2027,19 @@
     if-nez v9, :cond_6
 
     .line 19
+    iget v9, v7, Lcom/smartisanos/launcher/data/Q;->pageIndex:I
+    if-nez v9, :dense_startup_page
+    invoke-static {}, Lcom/smartisanos/launcher/data/A;->startupHomeMask()I
+    move-result v9
+    if-eqz v9, :dense_startup_page
+    not-int v9, v9
+    invoke-static {v9}, Ljava/lang/Integer;->numberOfTrailingZeros(I)I
+    move-result v10
+    if-ge v10, v0, :cond_6
+    move v4, v10
+    const/4 v2, 0x0
+    goto :goto_3
+    :dense_startup_page
     iget v9, v7, Lcom/smartisanos/launcher/data/Q;->pageIndex:I
 
     invoke-static {v9}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;

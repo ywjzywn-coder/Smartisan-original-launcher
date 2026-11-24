@@ -21,8 +21,8 @@ final class TabletInstrumentArt {
         if(lastKind!=kind || lastKey!=key) {
             Canvas c=new Canvas(layer);
             if(kind==TabletTile.BATTERY) battery(c,bw,bh,key);
-            else if(kind==TabletTile.STORAGE) drive(c,bw,bh);
-            else weather(c,bw,bh,key);
+            else if(kind==TabletTile.WEATHER) weather(c,bw,bh,key);
+            else c.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
             lastKind=kind; lastKey=key;
         }
         solid(Color.WHITE);p.setFilterBitmap(true);
@@ -95,47 +95,6 @@ final class TabletInstrumentArt {
         grad(0, y - band, 0, y, 0x00a2f174, 0x3062ae39, 0x74a1e96f);
         c.drawRect(0, y - band, batteryCore.right, y, p);
         c.restore();
-    }
-
-    private void drive(Canvas c,float w,float h) {
-        float u=Math.min(w,h), radius=.055f*u;
-        c.drawColor(0xff272a2c);
-        grad(0,0,w*.67f,h,0xffa6a6a4,0xff53595c,0xff969b99,0xff494d50);
-        c.drawRoundRect(u*.018f,u*.018f,w-u*.018f,h-u*.018f,radius,radius,p);
-        grad(0,0,w,h,0xff62696b,0xff343b3e,0xff52595c);
-        c.drawRoundRect(u*.032f,u*.032f,w-u*.032f,h-u*.032f,radius,radius,p);
-        boolean wide=w>h;
-        float cx=wide?w*.235f:w*.50f,cy=wide?h*.49f:h*.285f;
-        float r=Math.min((wide?w:h)*.195f,u*.390f);
-        solid(0xff171b1d);c.drawCircle(cx,cy+r*.038f,r*1.06f,p);
-        solid(Color.WHITE);
-        p.setShader(new SweepGradient(cx,cy,new int[]{0xffb6bfc2,0xff626f75,0xffd8d9cf,0xff919d9b,
-                0xff677782,0xffe3e4df,0xff727b81,0xffb6bfc2},null));
-        c.drawCircle(cx,cy,r,p);
-        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(Math.max(1,r*.008f));solid(0x28ffffff);
-        for(int ring=0;ring<11;ring++) c.drawCircle(cx,cy,r*(.45f+ring*.048f),p);
-        p.setStyle(Paint.Style.FILL);
-        solid(0xff4a5255);c.drawCircle(cx,cy,r*.28f,p);
-        grad(cx-r*.2f,cy-r*.2f,cx+r*.2f,cy+r*.22f,0xfff6f6ef,0xff889494,0xffc7c6bc);
-        c.drawCircle(cx,cy,r*.225f,p);solid(0xff4c5457);c.drawCircle(cx,cy,r*.078f,p);
-        float ax=cx+r*.77f,ay=cy+r*.77f;
-        Path arm=new Path();arm.moveTo(ax-r*.11f,ay+r*.08f);arm.lineTo(cx+r*.02f,cy-r*.48f);
-        arm.lineTo(cx+r*.16f,cy-r*.41f);arm.lineTo(ax+r*.14f,ay-r*.08f);arm.close();
-        grad(cx,cy,ax,ay,0xffdedcd3,0xff6f7778,0xffc1c4bf);c.drawPath(arm,p);
-        screw(c,ax,ay,r*.145f);
-        float x=wide?w*.465f:u*.086f,y=wide?h*.113f:h*.54f;
-        float right=w-u*.082f,bottom=h-u*.108f;
-        solid(0xff373c3c);c.drawRoundRect(x-1,y,right+1,bottom+2,u*.018f,u*.018f,p);
-        grad(x,y,right,bottom,0xfff0ede1,0xffdedbcf,0xffe7e3d8);
-        c.drawRoundRect(x,y,right,bottom,u*.018f,u*.018f,p);
-        for(float sx:new float[]{u*.066f,w-u*.066f})
-            for(float sy:new float[]{u*.066f,h-u*.066f}) screw(c,sx,sy,u*.025f);
-    }
-    private void screw(Canvas c,float x,float y,float r) {
-        solid(0xff2b3031);c.drawCircle(x,y+r*.12f,r*1.09f,p);
-        grad(x-r,y-r,x+r,y+r,0xffd0d2cf,0xff898f90,0xff525a5c);c.drawCircle(x,y,r,p);
-        solid(0xff485054);p.setStrokeWidth(Math.max(1,r*.23f));
-        c.drawLine(x-r*.40f,y+r*.35f,x+r*.40f,y-r*.35f,p);
     }
 
     private void weather(Canvas c,float w,float h,int code) {
