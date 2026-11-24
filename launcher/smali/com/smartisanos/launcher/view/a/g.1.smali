@@ -4664,6 +4664,19 @@
 .method public Nm()V
     .locals 2
 
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result v0
+    if-eqz v0, :original_dock_scale
+    iget-boolean v0, p0, Lcom/smartisanos/launcher/view/a/g;->HH:Z
+    if-nez v0, :original_dock_scale
+    iget-object v0, p0, Lcom/smartisanos/launcher/view/a/g;->dH:Lcom/smartisanos/launcher/data/LayoutProperty;
+    iget v0, v0, Lcom/smartisanos/launcher/data/LayoutProperty;->icon_size_origin:F
+    invoke-static {v0}, Lcom/smartisanos/launcher/data/TabletLayout;->dockArtScale(F)F
+    move-result v1
+    const/high16 v0, 0x3f800000
+    invoke-virtual {p0,v1,v1,v0}, Lcom/smartisanos/smengine/SceneNode;->setScale(FFF)V
+    return-void
+    :original_dock_scale
     .line 1
     sget-boolean v0, Lcom/smartisanos/launcher/data/Constants;->ENABLE_LARGE_SCREEN_MODE:Z
 
@@ -4939,6 +4952,15 @@
 
     .line 1
     iput-boolean v0, p0, Lcom/smartisanos/launcher/view/a/g;->HH:Z
+
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result v0
+    if-eqz v0, :workspace_scale_restored
+    const/high16 v0, 0x3f800000
+    invoke-virtual {p0,v0,v0,v0}, Lcom/smartisanos/smengine/SceneNode;->setScale(FFF)V
+    sget-boolean v0, Lcom/smartisanos/launcher/data/Constants;->SHOW_APP_NAME:Z
+    invoke-virtual {p0,v0}, Lcom/smartisanos/launcher/view/a/g;->Na(Z)V
+    :workspace_scale_restored
 
     .line 2
     iget-object v0, p0, Lcom/smartisanos/launcher/view/a/g;->WH:Lcom/smartisanos/launcher/view/a/ca;
@@ -5614,6 +5636,14 @@
 .method public Um()Z
     .locals 3
 
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result v0
+    if-eqz v0, :regular_name_policy
+    iget-boolean v0, p0, Lcom/smartisanos/launcher/view/a/g;->HH:Z
+    if-nez v0, :regular_name_policy
+    const/4 v0, 0x0
+    return v0
+    :regular_name_policy
     .line 1
     sget-boolean v0, Lcom/smartisanos/launcher/data/Constants;->ENABLE_LARGE_SCREEN_MODE:Z
 
@@ -7904,6 +7934,13 @@
 .method public b(Lcom/smartisanos/smengine/Camera;)V
     .locals 3
 
+    iget-boolean v0,p0,Lcom/smartisanos/launcher/view/a/g;->HH:Z
+    if-nez v0,:normal_label
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result v0
+    if-eqz v0,:normal_label
+    return-void
+    :normal_label
     .line 1
     iget-object v0, p0, Lcom/smartisanos/launcher/view/a/g;->sc:[Lcom/smartisanos/smengine/SceneNode;
 
@@ -9994,11 +10031,16 @@
     .line 10
     invoke-virtual {p0}, Lcom/smartisanos/launcher/view/a/g;->Cm()V
 
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result v0
+    if-nez v0, :check_dock_scale
+
     .line 11
     sget-boolean v0, Lcom/smartisanos/launcher/data/Constants;->ENABLE_LARGE_SCREEN_MODE:Z
 
     if-eqz v0, :cond_2
 
+    :check_dock_scale
     iget-boolean v0, p0, Lcom/smartisanos/launcher/view/a/g;->HH:Z
 
     if-nez v0, :cond_2

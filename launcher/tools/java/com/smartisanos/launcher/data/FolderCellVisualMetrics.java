@@ -7,9 +7,6 @@ public final class FolderCellVisualMetrics {
 
     public static float resolveLabelCenterY(Object page, Object property,
             Object label, float fallbackY) {
-        if (TabletLayout.supportsLandscapeSurface() && isDockItem(page)) {
-            return -29f * TabletLayout.density();
-        }
         if (!isOpenFolderChild(page)) {
             return DesktopLabelMetrics.resolveLabelCenterY(property, label, fallbackY);
         }
@@ -25,15 +22,6 @@ public final class FolderCellVisualMetrics {
                 - DesktopLabelMetrics.number(property, "icon_offset_y");
         return -(artworkBottom + DesktopLabelMetrics.finalVisualGap()
                 + textHeight * 0.5f);
-    }
-
-    private static boolean isDockItem(Object cell) {
-        try {
-            Object item = cell.getClass().getMethod("Rl").invoke(cell);
-            return item != null && item.getClass().getField("pageIndex").getInt(item) == -2;
-        } catch (ReflectiveOperationException unavailable) {
-            return false;
-        }
     }
 
     private static boolean isOpenFolderChild(Object page) {

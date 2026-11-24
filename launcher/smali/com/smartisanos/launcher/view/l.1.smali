@@ -2950,8 +2950,12 @@
     .line 118
     sget-boolean v4, Lcom/smartisanos/launcher/data/Constants;->ENABLE_LARGE_SCREEN_MODE:Z
 
+    if-nez v4, :dock_visuals
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result v4
     if-eqz v4, :cond_1f
 
+    :dock_visuals
     .line 119
     iget-object v4, v0, Lcom/smartisanos/launcher/view/d;->Qj:Lcom/smartisanos/launcher/view/a/g;
 

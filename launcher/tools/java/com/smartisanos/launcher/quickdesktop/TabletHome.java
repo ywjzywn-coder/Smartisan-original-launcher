@@ -69,6 +69,7 @@ public final class TabletHome extends FrameLayout {
     public static void setPinnedCount(int count) {
         if (pinned==count) return;
         pinned=count;
+        TabletLayout.invalidateDock();
         TabletHome panel=active.get();
         if (panel!=null) panel.post(panel.render);
     }
@@ -84,6 +85,7 @@ public final class TabletHome extends FrameLayout {
         TabletHome panel=active.get();
         if (panel!=null && panel.state!=null) {
             panel.state=null;
+            TabletLayout.invalidateDock();
             panel.post(panel.render);
         }
     }
@@ -265,7 +267,7 @@ public final class TabletHome extends FrameLayout {
         recent.removeAllViews();
         if(!entries.isEmpty()) {
             View divider=new View(getContext()); divider.setBackgroundColor(0x66858889);
-            LinearLayout.LayoutParams rule=new LinearLayout.LayoutParams(dp(1),dp(34));
+            LinearLayout.LayoutParams rule=new LinearLayout.LayoutParams(dp(1),dp(24));
             recent.addView(divider,rule);
         }
         for(RecentApp item:entries) {
@@ -274,15 +276,8 @@ public final class TabletHome extends FrameLayout {
             button.setContentDescription("最近使用，"+item.label);
             ImageView image=new ImageView(getContext());image.setImageDrawable(item.icon);
             image.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            LinearLayout.LayoutParams artwork=new LinearLayout.LayoutParams(dp(54),dp(54));
-            if(!prefs.getBoolean("launcher_hide_lable",false)) artwork.bottomMargin=dp(4);
-            button.addView(image,artwork);
-            TextView label=new TextView(getContext());label.setText(item.label);label.setTextSize(14);
-            label.setIncludeFontPadding(false);
-            label.setTextColor(0xffeeeeee);label.setGravity(Gravity.CENTER);
-            label.setShadowLayer(2,0,1,0xff222222);label.setSingleLine();
-            label.setEllipsize(TextUtils.TruncateAt.END);
-            if(!prefs.getBoolean("launcher_hide_lable",false)) button.addView(label,new LinearLayout.LayoutParams(-1,-2));
+            int size=dp(TabletLayout.DOCK_ICON_DP);
+            button.addView(image,new LinearLayout.LayoutParams(size,size));
             recent.addView(button,new LinearLayout.LayoutParams(dp(80),-1));
             button.setOnClickListener(new OnClickListener() { public void onClick(View v) {
                 if(!TabletSlots.mayShowRecent(item.cn.getPackageName(),item.cn.getClassName(),item.user)) {loadRecent();return;}

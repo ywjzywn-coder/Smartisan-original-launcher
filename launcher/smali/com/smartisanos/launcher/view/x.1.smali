@@ -1117,6 +1117,27 @@
 
     if-ne p1, v3, :cond_5
 
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result v3
+    if-eqz v3, :handed_dock_bounds
+    # A drag from a page previews one additional slot. Dock reordering keeps
+    # the existing count. Use the same extent as the visible pinned row.
+    if-nez p2, :tablet_slot_count
+    invoke-static {p1}, Lcom/smartisanos/launcher/data/Constants;->mode(I)Lcom/smartisanos/launcher/data/LayoutProperty;
+    move-result-object v3
+    iget v3, v3, Lcom/smartisanos/launcher/data/LayoutProperty;->dock_app_count:I
+    if-ge p3, v3, :tablet_slot_count
+    add-int/lit8 p3, p3, 0x1
+    :tablet_slot_count
+    invoke-static {v0, p3}, Lcom/smartisanos/launcher/data/TabletLayout;->dockLeft(FI)F
+    move-result p1
+    invoke-static {v0, p3}, Lcom/smartisanos/launcher/data/TabletLayout;->dockPitch(FI)F
+    move-result v2
+    int-to-float v3, p3
+    mul-float/2addr v2, v3
+    goto :goto_2
+
+    :handed_dock_bounds
     const/4 p1, 0x0
 
     if-eqz p2, :cond_2
@@ -1665,6 +1686,16 @@
     iget p5, v1, Lcom/smartisanos/launcher/data/LayoutProperty;->dock_cells_offset_y_without_app_name:F
 
     :cond_9
+    if-nez v3, :goto_4
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result v2
+    if-eqz v2, :goto_4
+    iget v2, v1, Lcom/smartisanos/launcher/data/LayoutProperty;->icon_size_origin:F
+    iget v4, v1, Lcom/smartisanos/launcher/data/LayoutProperty;->icon_size_with_shadow:F
+    invoke-static {v2, v4}, Lcom/smartisanos/launcher/data/TabletLayout;->dockShadowOffset(FF)F
+    move-result v2
+    sub-float/2addr p5, v2
+
     :goto_4
     if-ge v0, p0, :cond_a
 

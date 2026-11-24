@@ -129,9 +129,11 @@ public final class LayoutPropertyAdapter {
                 }
             }
             if (tablet && !folderLayout) {
+                setNumericField(property, "dock_app_count",
+                        TabletLayout.dockCapacity(resources.getConfiguration()));
                 if (resourceMode == 12 || resourceMode == 20) {
                     float density = resources.getDisplayMetrics().density;
-                    float dock = 96f * density + TabletLayout.bottomInset();
+                    float dock = 68f * density + TabletLayout.bottomInset();
                     setNumericField(property, "dock_height", dock);
                     setNumericField(property, "dock_cells_offset_y", TabletLayout.bottomInset() / 2f);
                     setNumericField(property, "dock_cells_offset_y_without_app_name", TabletLayout.bottomInset() / 2f);

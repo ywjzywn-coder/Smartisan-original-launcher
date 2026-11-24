@@ -10435,6 +10435,17 @@
 .method public isEmpty()Z
     .locals 3
 
+    iget v0, p0, Lcom/smartisanos/launcher/view/b/M;->pageIndex:I
+    invoke-static {v0}, Lcom/smartisanos/launcher/backup/TabletSlots;->keepCellIndices(I)Z
+    move-result v0
+    if-eqz v0, :count_apps
+    invoke-virtual {p0}, Lcom/smartisanos/launcher/view/b/M;->On()Z
+    move-result v0
+    if-nez v0, :count_apps
+    const/4 v0, 0x0
+    return v0
+
+    :count_apps
     .line 1
     iget-boolean v0, p0, Lcom/smartisanos/launcher/view/b/M;->uI:Z
 
@@ -14242,7 +14253,10 @@
 .end method
 
 .method public un()Lcom/smartisanos/launcher/view/a/g;
-    .locals 4
+    .locals 5
+
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result v4
 
     const/4 v0, 0x0
 
@@ -14276,8 +14290,11 @@
 
     move-result v3
 
-    if-nez v3, :cond_1
-
+    if-eqz v3, :occupied_cell
+    # Tablet pages may contain empty slots before later applications.
+    if-nez v4, :cond_0
+    goto :cond_1
+    :occupied_cell
     move-object v0, v2
 
     :cond_0

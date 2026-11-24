@@ -9,6 +9,7 @@ import android.util.Log;
 /** Selects the layout for the HOME activity. Workspace slots remain in the same database. */
 public final class TabletLayout {
     private static final int TABLET_WIDTH_DP = 600;
+    public static final int DOCK_ICON_DP = 38;
     private static volatile Context sceneContext;
     private static volatile boolean tabletScene;
     private static volatile int bottomInset;
@@ -63,25 +64,43 @@ public final class TabletLayout {
         return context == null ? 1f : context.getResources().getDisplayMetrics().density;
     }
 
+    public static int dockCapacity(Configuration config) {
+        // A fixed short-edge capacity keeps saved indices valid through rotation.
+        int slots = (config.smallestScreenWidthDp - 22) / 48;
+        return Math.min(15, Math.max(8, slots - 3));
+    }
+
     public static float dockPitch(float width, int pinned) {
         float usable=Math.max(1,width-leftInset-rightInset);
-        int recent=Math.min(recentCount,usable/density()>=820?3:2);
-        return Math.min(92*density(),usable/(Math.max(1,pinned+recent)+.75f));
+        int recent=Math.min(recentCount,recentLimit(width));
+        return Math.min(60*density(),usable/(Math.max(1,pinned+recent)+.75f));
     }
 
     public static float dockLeft(float width, int pinned) {
         float usable=Math.max(1,width-leftInset-rightInset);
-        int recent=Math.min(recentCount,usable/density()>=820?3:2);
+        int recent=Math.min(recentCount,recentLimit(width));
         float gap=recent>0 && pinned>0 ? .25f : 0f;
         return leftInset+(usable-(pinned+recent+gap)*dockPitch(width,pinned))/2f;
     }
 
-    public static int recentLimit(float width){return (width-leftInset-rightInset)/density()>=820?3:2;}
+    public static int recentLimit(float width){return (width-leftInset-rightInset)/density()>=600?3:2;}
+
+    public static float dockArtScale(float sourceSize) {
+        return sourceSize > 0 ? Math.min(1f, DOCK_ICON_DP * density() / sourceSize) : 1f;
+    }
+
+    public static float dockShadowOffset(float artwork, float texture) {
+        // The original composer places one quarter of its shadow margin above the artwork.
+        return Math.max(0f, texture - artwork) * 0.25f * dockArtScale(artwork);
+    }
     public static synchronized void recentCount(int count){
         if(recentCount!=count){recentCount=count;dockDirty=true;}
     }
     public static synchronized boolean takeDockChange(){
         boolean change=dockDirty;dockDirty=false;return change;
+    }
+    public static synchronized void invalidateDock() {
+        dockDirty = true;
     }
     public static synchronized void navigation(int orientation,int left,int right,int bottom){
         if(leftInset!=left || rightInset!=right){leftInset=left;rightInset=right;dockDirty=true;}

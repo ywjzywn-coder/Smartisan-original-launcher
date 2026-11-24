@@ -7226,13 +7226,28 @@
 
     .line 17
     :goto_0
+    iget v1, v0, Lcom/smartisanos/launcher/view/b/M;->pageIndex:I
+    invoke-static {v1}, Lcom/smartisanos/launcher/backup/TabletSlots;->keepCellIndices(I)Z
+    move-result v1
+    if-eqz v1, :compact_page
+    # The outgoing app leaves its own slot vacant on a page with widget reservations.
+    move-object v0, p1
+    goto :dock_anchor
+    :compact_page
     invoke-virtual {v0}, Lcom/smartisanos/launcher/view/b/M;->un()Lcom/smartisanos/launcher/view/a/g;
 
     move-result-object v0
 
-    if-eqz v0, :cond_3
+    if-nez v0, :dock_anchor
+    # A reserved widget can precede the first app on a sparse tablet page.
+    # With no contiguous run to compact, animate only the selected cell.
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result v1
+    if-eqz v1, :cond_3
+    move-object v0, p1
 
     .line 18
+    :dock_anchor
     new-instance v1, Lcom/smartisanos/smengine/l;
 
     invoke-direct {v1}, Lcom/smartisanos/smengine/l;-><init>()V
@@ -7656,7 +7671,11 @@
     .line 10
     invoke-virtual {v15}, Lcom/smartisanos/launcher/view/b/M;->un()Lcom/smartisanos/launcher/view/a/g;
 
-    move-result-object v2
+    move-result-object v4
+    # On a fully empty page the hovered placeholder is the destination.
+    if-eqz v4, :use_hover_slot
+    move-object v2, v4
+    :use_hover_slot
 
     .line 11
     invoke-virtual {v2}, Lcom/smartisanos/launcher/view/a/g;->getRowIndex()I

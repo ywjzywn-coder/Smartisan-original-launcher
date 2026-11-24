@@ -213,17 +213,12 @@
 
     .line 10
     :cond_0
-    sget-boolean v0, Lcom/smartisanos/launcher/data/Constants;->ENABLE_LARGE_SCREEN_MODE:Z
-
-    if-eqz v0, :cond_1
-
     .line 11
     iget-object v0, p0, Lcom/smartisanos/launcher/view/a/ca;->Qj:Lcom/smartisanos/launcher/view/a/g;
 
     invoke-virtual {v0}, Lcom/smartisanos/launcher/view/a/g;->Nm()V
 
     .line 12
-    :cond_1
     iget-object p0, p0, Lcom/smartisanos/launcher/view/a/ca;->Qj:Lcom/smartisanos/launcher/view/a/g;
 
     const/4 v0, 0x0

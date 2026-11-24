@@ -3860,14 +3860,9 @@
     invoke-virtual {v3, v4, v5, v6}, Lcom/smartisanos/smengine/SceneNode;->setTranslate(FFF)V
 
     .line 5
-    sget-boolean v4, Lcom/smartisanos/launcher/data/Constants;->ENABLE_LARGE_SCREEN_MODE:Z
-
-    if-eqz v4, :cond_1
-
     .line 6
     invoke-virtual {v3}, Lcom/smartisanos/launcher/view/a/g;->Nm()V
 
-    :cond_1
     add-int/lit8 v2, v2, 0x1
 
     goto :goto_0
@@ -6686,7 +6681,7 @@
 .end method
 
 .method public ap()V
-    .locals 7
+    .locals 8
 
     .line 1
     iget v0, p0, Lcom/smartisanos/launcher/view/V;->hH:I
@@ -6701,6 +6696,14 @@
     invoke-virtual {p0}, Lcom/smartisanos/launcher/view/V;->Fo()Ljava/util/ArrayList;
 
     move-result-object v2
+
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->supportsLandscapeSurface()Z
+    move-result v7
+    iget v3, p0, Lcom/smartisanos/launcher/view/V;->hH:I
+    iget v4, p0, Lcom/smartisanos/launcher/view/V;->bK:I
+    if-eq v3, v4, :layout_items
+    const/4 v7, 0x0
+    :layout_items
 
     .line 3
     :goto_0
@@ -6734,6 +6737,9 @@
 
     invoke-virtual {v3, v5, v6, v4}, Lcom/smartisanos/smengine/SceneNode;->setTranslate(FFF)V
 
+    if-eqz v7, :positioned
+    invoke-virtual {v3}, Lcom/smartisanos/launcher/view/a/g;->Nm()V
+    :positioned
     add-int/lit8 v1, v1, 0x1
 
     goto :goto_0
