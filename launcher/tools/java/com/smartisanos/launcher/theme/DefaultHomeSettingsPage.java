@@ -40,7 +40,7 @@ final class DefaultHomeSettingsPage {
                     new Runnable() { public void run() { leaveDefaultHomePage(activity); } });
             click(activity, resources, root, "default_home_primary", new View.OnClickListener() {
                 public void onClick(View v) {
-                    openDefaultHomeSettings(activity, defaultHomeState(activity) != 1);
+                    openDefaultHomeSettings(activity, !isHuawei() && defaultHomeState(activity) != 1);
                 }
             });
             click(activity, resources, root, "default_home_recheck", new View.OnClickListener() {
@@ -107,6 +107,7 @@ final class DefaultHomeSettingsPage {
     /** 1 = confirmed, 0 = system reports another holder, -1 = inconclusive. */
     private static int defaultHomeState(Context context) {
         if (context == null) return -1;
+        int roleState = -1;
         if (Build.VERSION.SDK_INT >= 29) {
             try {
                 Object manager = context.getSystemService("role");
@@ -114,24 +115,23 @@ final class DefaultHomeSettingsPage {
                     Class<?> cls = Class.forName("android.app.role.RoleManager");
                     String home = (String) cls.getField("ROLE_HOME").get(null);
                     if ((Boolean) cls.getMethod("isRoleAvailable", String.class).invoke(manager, home)) {
-                        return (Boolean) cls.getMethod("isRoleHeld", String.class)
-                                .invoke(manager, home) ? 1 : 0;
+                        if ((Boolean) cls.getMethod("isRoleHeld", String.class).invoke(manager, home)) return 1;
+                        roleState = 0;
                     }
                 }
             } catch (Exception error) {
                 Log.w(LOG_TAG, "DEFAULT_HOME_CHECK role_query_failed", error);
-                return -1;
             }
         }
         try {
             Intent home = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
             PackageManager pm = context.getPackageManager();
             ResolveInfo resolved = pm.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY);
-            if (resolved == null || resolved.activityInfo == null) return -1;
+            if (resolved == null || resolved.activityInfo == null) return roleState;
             ActivityInfo selected = resolved.activityInfo;
             // A resolver/chooser is not a selected launcher. Require an exact HOME candidate.
             List<ResolveInfo> candidates = pm.queryIntentActivities(home, PackageManager.MATCH_DEFAULT_ONLY);
-            if (candidates == null) return -1;
+            if (candidates == null) return roleState;
             for (ResolveInfo candidate : candidates) {
                 ActivityInfo info = candidate == null ? null : candidate.activityInfo;
                 if (info != null && selected.packageName != null && selected.name != null
@@ -142,7 +142,7 @@ final class DefaultHomeSettingsPage {
         } catch (RuntimeException error) {
             Log.w(LOG_TAG, "DEFAULT_HOME_CHECK resolver_query_failed", error);
         }
-        return -1;
+        return roleState;
     }
 
     private static String defaultHomeStatusMessage(Resources resources, int state) {
@@ -168,6 +168,7 @@ final class DefaultHomeSettingsPage {
     }
 
     private static String defaultHomeHelpMessage(Resources resources, String manufacturer, String brand) {
+        if(isHuawei()) return "在系统设置的「应用和服务 → 默认应用 → 桌面」中选择本桌面。若列表只有华为桌面，此系统版本可能限制第三方桌面的默认资格。";
         String device = (manufacturer + " " + brand).toLowerCase(java.util.Locale.ROOT);
         String key = "default_home_help_generic";
         if (device.contains("vivo") || device.contains("iqoo")) {
@@ -176,6 +177,10 @@ final class DefaultHomeSettingsPage {
             key = "default_home_help_oppo";
         }
         return text(resources, key);
+    }
+
+    private static boolean isHuawei() {
+        return "huawei".equalsIgnoreCase(Build.MANUFACTURER) || "huawei".equalsIgnoreCase(Build.BRAND);
     }
 
     private static void openDefaultHomeSettings(Activity activity) {

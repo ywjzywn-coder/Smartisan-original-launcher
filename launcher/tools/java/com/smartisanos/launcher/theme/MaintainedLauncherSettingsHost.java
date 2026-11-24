@@ -670,6 +670,10 @@ public final class MaintainedLauncherSettingsHost {
         SharedPreferences prefs = activity.getSharedPreferences("launcher_settings", Context.MODE_PRIVATE);
         String returnPage = prefs.getString(PREF_DEFAULT_HOME_RETURN_PAGE, "");
         Intent intent = activity.getIntent();
+        if (intent != null && "com.smartisanos.launcher.WEATHER_SETTINGS".equals(intent.getAction())) {
+            showDynamicWeatherPage(activity);
+            return;
+        }
         if (returnPage.startsWith("DEFAULT_HOME")
                 && (intent == null || (!intent.getBooleanExtra("launcher_show_search", false)
                 && !intent.getBooleanExtra(EXTRA_SHOW_QUICK_DESKTOP_SETTINGS, false)

@@ -3,6 +3,9 @@ package com.smartisanos.launcher.quickdesktop;
 import android.app.AlarmManager;
 import android.content.Context;
 import android.graphics.*;
+import android.content.Intent;
+import android.os.Bundle;
+import com.smartisanos.launcher.theme.WeatherBridge;
 
 import android.view.View;
 import java.io.InputStream;
@@ -14,12 +17,18 @@ import java.util.Locale;
 
 /** Live artwork sized to whole Smartisan cells. */
 final class TabletTile extends View {
-    static final int CALENDAR = 0, CLOCK = 1, MUSIC = 2;
+    static final int CALENDAR = 0, CLOCK = 1, MUSIC = 2, WEATHER = 3;
     final int kind;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
     private final float density;
     private QuickDesktopMediaBridge.Snapshot track;
+    private static final java.util.concurrent.ExecutorService mediaWorker =
+            java.util.concurrent.Executors.newSingleThreadExecutor();
+    private boolean readingMedia;
     private String nextAlarm;
+    private Bundle forecast;
+    private Bitmap sky;
+    private String skyArt;
     private Bitmap face, hourHand, minuteHand, hub, musicCover, paperPad, bindings, dateArt;
     private int displayedDay;
     private static final String TEXTURES = "Textures/1080p/";
@@ -41,7 +50,13 @@ final class TabletTile extends View {
         public void run() {
             removeCallbacks(this);
             if (!isShown() || !hasWindowFocus()) return;
-            if (kind == MUSIC) track = QuickDesktopMediaBridge.read(getContext());
+            if (kind == MUSIC) refreshMedia();
+            if (kind == WEATHER) {
+                forecast=WeatherBridge.getTabletForecast(getContext());
+                String code=forecast==null?"99":forecast.getString("weatherCode","99");
+                String art=forecast==null?"cloudy":weatherArt(code);
+                if(!art.equals(skyArt)){sky=asset(TEXTURES+"weather/"+art+".png");skyArt=art;}
+            }
             if (kind == CALENDAR) {
                 int day=Calendar.getInstance().get(Calendar.DAY_OF_MONTH);
                 if (day!=displayedDay) {
@@ -60,6 +75,24 @@ final class TabletTile extends View {
         }
     };
 
+    private void refreshMedia() {
+        if (readingMedia) return;
+        readingMedia=true;
+        final Context app=getContext().getApplicationContext();
+        mediaWorker.execute(new Runnable(){public void run(){
+            QuickDesktopMediaBridge.Snapshot result=null;
+            try { result=QuickDesktopMediaBridge.read(app,false); }
+            catch(RuntimeException unavailable){android.util.Log.w("TabletTile","Media session unavailable",unavailable);}
+            final QuickDesktopMediaBridge.Snapshot snapshot=result;
+            post(new Runnable(){public void run(){
+                readingMedia=false; track=snapshot;
+                setContentDescription(snapshot!=null && snapshot.sessionAvailable ?
+                        "音乐，"+snapshot.title+"，"+snapshot.artist : "音乐");
+                invalidate();
+            }});
+        }});
+    }
+
     TabletTile(Context context,int kind) {
         super(context);
         this.kind = kind;
@@ -72,14 +105,27 @@ final class TabletTile extends View {
         } else if (kind==CALENDAR) {
             paperPad=asset(TEXTURES+"calendar/bg.png");
             bindings=asset(TEXTURES+"calendar/ring.png");
-        } else {
+        } else if (kind==MUSIC) {
             musicCover=asset("quickdesktop_original/music_default.png");
         }
-        setContentDescription(new String[]{"日历","时钟与闹钟","音乐"}[kind]);
+        setContentDescription(TabletTileLibrary.NAMES[kind]);
         setOnClickListener(new OnClickListener() { public void onClick(View v) {
             if (kind == CALENDAR && !QuickDesktopActions.openCalendar(context)) QuickDesktopActions.openShortcut(context,1);
             if (kind == CLOCK) QuickDesktopActions.openShortcut(context,5);
-            if (kind == MUSIC) QuickDesktopActions.openMusic(context);
+            if (kind == MUSIC) {
+                if(track!=null && track.sessionAvailable) {
+                    try {QuickDesktopMediaBridge.togglePlayback(context,false);}
+                    catch(RuntimeException unavailable){android.util.Log.w("TabletTile","Playback unavailable",unavailable);}
+                    postDelayed(refresh,250);
+                } else if (track!=null && !track.notificationAccess) {
+                    try {context.startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));}
+                    catch(android.content.ActivityNotFoundException missing){ QuickDesktopActions.openMusic(context); }
+                } else QuickDesktopActions.openMusic(context);
+            }
+            if (kind==WEATHER) context.startActivity(new Intent("com.smartisanos.launcher.WEATHER_SETTINGS")
+                    .setClassName(context.getPackageName(),"com.smartisanos.launcher.theme.ThemeChooserActivity")
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         }});
     }
 
@@ -109,7 +155,8 @@ final class TabletTile extends View {
         Calendar now=Calendar.getInstance();
         if (paper) calendar(c,w,h,now);
         else if (kind==CLOCK) clock(c,w,h,now);
-        else music(c,w,h);
+        else if (kind==MUSIC) music(c,w,h);
+        else weather(c,w,h);
         paint.setColor(0x44ffffff);
         c.drawRect(1,1,w-1,2,paint);
         paint.setColor(0x66000000);
@@ -142,17 +189,18 @@ final class TabletTile extends View {
         Calendar month=(Calendar)now.clone(); month.set(Calendar.DAY_OF_MONTH,1);
         int shift=(month.get(Calendar.DAY_OF_WEEK)-first+7)%7;
         String[] days=new DateFormatSymbols().getShortWeekdays();
-        float step=(h-header)/(7.35f);
+        int weeks=(shift+month.getActualMaximum(Calendar.DAY_OF_MONTH)+6)/7;
+        float step=(h-header-6*edge)/(weeks+1f);
         for (int i=0;i<7;i++) {
             int weekday=(first-1+i)%7+1;
-            text(c,days[weekday],(i+.5f)*col,header+.88f*step,
+            text(c,days[weekday],(i+.5f)*col,header+.65f*step,
                     Math.min(12*density,step*.56f),0xff796f66,false,Paint.Align.CENTER);
         }
         for (int day=1;day<=month.getActualMaximum(Calendar.DAY_OF_MONTH);day++) {
             int index=shift+day-1;
-            float x=(index%7+.5f)*col, y=header+(1.64f+index/7)*step;
+            float x=(index%7+.5f)*col, y=header+(1.5f+index/7)*step;
             if (day==today) {
-                paint.setColor(0xff933d36); c.drawCircle(x,y,step*.48f,paint);
+                paint.setColor(0xff933d36); c.drawCircle(x,y,Math.min(col,step)*.43f,paint);
             }
             float size=Math.min(17*density,step*.68f);
             text(c,String.valueOf(day),x,y+size*.34f,size,day==today ? -1 : 0xff393633,
@@ -186,17 +234,50 @@ final class TabletTile extends View {
         artwork(c,hand,-w/2,-h/2,w,h); c.restore();
     }
 
+    private String weatherArt(String code){
+        switch(code){
+            case "0":return "sunny";case "1":return "cloudy";case "2":return "overcast";
+            case "4":return "thundershower";case "5":return "thundershowerhail";case "6":return "icerain";
+            case "7":return "lightrain";case "8":return "moderaterain";case "9":return "heavyrain";
+            case "13":return "snow";case "14":return "lightsnow";case "15":return "moderatesnow";
+            case "16":return "heavysnow";case "18":return "foggy";default:return "unknown";
+        }
+    }
+
+    private void weather(Canvas c,float w,float h){
+        boolean wide=w>=h;
+        float side=Math.min(Math.min(w,h)*.64f,108*density);
+        float x=wide?w*.25f:w*.5f,y=wide?h*.5f:h*.34f;
+        artwork(c,sky,x-side/2,y-side/2,side,side);
+        float tx=wide?w*.68f:w*.5f,ty=wide?h*.50f:h*.72f;
+        String temp=forecast==null?"天气":forecast.getString("temp","—")+"°";
+        String caption=forecast==null?"选择城市或更新天气":forecast.getString("city","")+"  "+
+                QuickDesktopContentView.weatherDescription(forecast.getString("weatherCode","99"));
+        text(c,temp,tx,ty,Math.min(32*density,w*.15f),0xfff8f3e9,false,Paint.Align.CENTER);
+        float size=Math.min(14*density,w*.072f);
+        paint.setTextSize(size);
+        int end=paint.breakText(caption,true,w*(wide?.55f:.94f),null);
+        text(c,caption.substring(0,end),tx,ty+size*1.45f,size,0xffd7d7cf,false,Paint.Align.CENTER);
+    }
+
     private void music(Canvas c,float w,float h) {
         boolean wide=w>=h;
         float r=Math.min(w,h)*.29f, x=wide?w*.24f:w*.5f, y=wide?h*.5f:h*.34f;
-        artwork(c,track!=null && track.artwork!=null ? track.artwork : musicCover,x-r,y-r,2*r,2*r);
+        Bitmap cover=track!=null && track.artwork!=null ? track.artwork : musicCover;
+        if(cover!=null){
+            int side=Math.min(cover.getWidth(),cover.getHeight());
+            int left=(cover.getWidth()-side)/2,top=(cover.getHeight()-side)/2;
+            paint.setColor(-1);paint.setFilterBitmap(true);
+            c.drawBitmap(cover,new Rect(left,top,left+side,top+side),new RectF(x-r,y-r,x+r,y+r),paint);
+        }
         float tx=wide?w*.68f:w*.50f, ty=wide?h*.48f:h*.72f;
         String title=track!=null && track.sessionAvailable ? track.title : "音乐";
         float size=Math.min(19*density,w*.09f);
         paint.setTextSize(size); paint.setTypeface(Typeface.DEFAULT_BOLD);
         int n=paint.breakText(title,true,w*(wide?.54f:.90f),null);
         text(c,title.substring(0,n),tx,ty,size,0xfff6f2ec,true,Paint.Align.CENTER);
-        String sub=track!=null && track.sessionAvailable ? track.artist : "打开音乐";
+        String sub=track!=null && track.sessionAvailable ? (track.playing?"Ⅱ  ":"▶  ")+track.artist
+                : track!=null && !track.notificationAccess?"授权显示正在播放":"打开音乐";
         paint.setTextSize(size*.7f);
         n=paint.breakText(sub,true,w*(wide?.53f:.9f),null);
         text(c,sub.substring(0,n),tx,ty+size*1.15f,size*.7f,0xffc3c4c1,false,Paint.Align.CENTER);

@@ -294,7 +294,7 @@ final class QuickDesktopContentView extends View {
                 0x66ffffff, false);
     }
 
-    private String weatherDescription(String value) {
+    static String weatherDescription(String value) {
         int code;
         try {
             code = Integer.parseInt(value);

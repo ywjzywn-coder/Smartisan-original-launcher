@@ -11,7 +11,10 @@ public final class TabletLayout {
     private static final int TABLET_WIDTH_DP = 600;
     private static volatile Context sceneContext;
     private static volatile boolean tabletScene;
-    private static int bottomInset;
+    private static volatile int bottomInset;
+    private static volatile int leftInset, rightInset;
+    private static volatile int recentCount, observedOrientation, observedBottom;
+    private static volatile boolean dockDirty;
     private static int sceneOrientation;
 
     private TabletLayout() {}
@@ -48,6 +51,7 @@ public final class TabletLayout {
                 bottomInset = Math.max(0, real.y - app.y);
             }
         }
+        if (observedOrientation==sceneOrientation) bottomInset=observedBottom;
         if (isTablet(config)) {
             Log.i("TabletLayout", "Scene orientation=" + sceneOrientation
                     + " smallestWidthDp=" + config.smallestScreenWidthDp);
@@ -60,13 +64,37 @@ public final class TabletLayout {
     }
 
     public static float dockPitch(float width, int pinned) {
-        int recent = width / density() >= 820 ? 3 : 2;
-        return Math.min(96 * density(), width / (Math.max(1, pinned) + recent + 1f));
+        float usable=Math.max(1,width-leftInset-rightInset);
+        int recent=Math.min(recentCount,usable/density()>=820?3:2);
+        return Math.min(92*density(),usable/(Math.max(1,pinned+recent)+.75f));
     }
 
     public static float dockLeft(float width, int pinned) {
-        int recent = width / density() >= 820 ? 3 : 2;
-        return (width - (pinned + recent + 0.5f) * dockPitch(width, pinned)) / 2f;
+        float usable=Math.max(1,width-leftInset-rightInset);
+        int recent=Math.min(recentCount,usable/density()>=820?3:2);
+        float gap=recent>0 && pinned>0 ? .25f : 0f;
+        return leftInset+(usable-(pinned+recent+gap)*dockPitch(width,pinned))/2f;
+    }
+
+    public static int recentLimit(float width){return (width-leftInset-rightInset)/density()>=820?3:2;}
+    public static synchronized void recentCount(int count){
+        if(recentCount!=count){recentCount=count;dockDirty=true;}
+    }
+    public static synchronized boolean takeDockChange(){
+        boolean change=dockDirty;dockDirty=false;return change;
+    }
+    public static synchronized void navigation(int orientation,int left,int right,int bottom){
+        if(leftInset!=left || rightInset!=right){leftInset=left;rightInset=right;dockDirty=true;}
+        observedBottom=bottom;observedOrientation=orientation;
+    }
+    public static boolean pendingNavigationResize(){
+        return tabletScene && observedOrientation==sceneOrientation && bottomInset!=observedBottom;
+    }
+    public static Context navigationResizeContext(){
+        Context context=sceneContext;
+        if (context==null || !pendingNavigationResize()
+                || context.getResources().getConfiguration().orientation!=sceneOrientation) return null;
+        return context;
     }
 
     public static int bottomInset() {
@@ -81,7 +109,7 @@ public final class TabletLayout {
         if (!tabletScene || width <= 0 || height <= 0) return null;
         int orientation = width > height ? Configuration.ORIENTATION_LANDSCAPE : Configuration.ORIENTATION_PORTRAIT;
         Context context = sceneContext;
-        if (context == null || orientation == sceneOrientation
+        if (context == null || (orientation == sceneOrientation && !pendingNavigationResize())
                 || orientation != context.getResources().getConfiguration().orientation) return null;
         return context;
     }

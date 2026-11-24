@@ -72,7 +72,7 @@ public final class PreferenceBackupCodec {
      */
     private static final Set<String> PORTABLE_KEYS = new HashSet<String>(Arrays.asList(
             // Grid / layout
-            TabletSlots.SHOW, TabletSlots.MUSIC,
+            TabletSlots.SHOW, TabletSlots.MUSIC, TabletSlots.POSITIONS,
             "prefs_key_launcher_mode",
             "launcher_icon_size",
             "launcher_default_icon_shape_v1",

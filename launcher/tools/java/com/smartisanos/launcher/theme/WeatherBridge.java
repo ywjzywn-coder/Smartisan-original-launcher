@@ -110,6 +110,18 @@ public final class WeatherBridge {
         return readBundle(app);
     }
 
+    public static Bundle getTabletForecast(Context context) {
+        scheduleRefresh(context,false);
+        return readBundle(context);
+    }
+
+    private static boolean weatherInUse(Context context) {
+        if (LauncherSettingBridge.dynamicWeatherCalendarEnabled(context)) return true;
+        if (!com.smartisanos.launcher.data.TabletLayout.isTablet(context.getResources().getConfiguration())) return false;
+        int layout=com.smartisanos.launcher.backup.TabletSlots.positions(context.getSharedPreferences("launcher_settings",0));
+        return com.smartisanos.launcher.backup.TabletSlots.slot(layout,3)>=0;
+    }
+
     public static void onLauncherResume(Activity activity) {
         if (activity == null) {
             return;
@@ -599,7 +611,7 @@ public final class WeatherBridge {
         if (context == null) {
             return;
         }
-        if (!LauncherSettingBridge.dynamicWeatherCalendarEnabled(context)) {
+        if (!weatherInUse(context)) {
             return;
         }
         final Context app = app(context);
@@ -647,7 +659,7 @@ public final class WeatherBridge {
 
     private static void requestSingleLocation(final Context context, final long networkGeneration) {
         if (!LauncherNetworkPolicy.isCurrent(networkGeneration)
-                || !LauncherSettingBridge.dynamicWeatherCalendarEnabled(context)) return;
+                || !weatherInUse(context)) return;
         synchronized (LOCK) {
             if (sLocationRequesting) return;
             sLocationRequesting = true;
@@ -681,7 +693,7 @@ public final class WeatherBridge {
                 if (!finish()) return;
                 synchronized (LOCK) { sPendingForcedRefresh = false; }
                 if (LauncherNetworkPolicy.isCurrent(networkGeneration)
-                        && LauncherSettingBridge.dynamicWeatherCalendarEnabled(context)
+                        && weatherInUse(context)
                         && isAutomaticLocation(context)) {
                     prefs(context).edit().putString("weather_last_error", message).apply();
                 }
@@ -694,7 +706,7 @@ public final class WeatherBridge {
                 }
                 if (!finish()) return;
                 if (!LauncherNetworkPolicy.isCurrent(networkGeneration)
-                        || !LauncherSettingBridge.dynamicWeatherCalendarEnabled(context)) return;
+                        || !weatherInUse(context)) return;
                 if (isAutomaticLocation(context)) {
                     prefs(context).edit().remove("weather_last_error").apply();
                     rememberLocation(context, location);
@@ -798,7 +810,7 @@ public final class WeatherBridge {
     private static void fetchAsync(final Context context, final double latitude,
             final double longitude, final long networkGeneration) {
         if (!LauncherNetworkPolicy.isCurrent(networkGeneration)
-                || !LauncherSettingBridge.dynamicWeatherCalendarEnabled(context)) {
+                || !weatherInUse(context)) {
             return;
         }
         synchronized (LOCK) {

@@ -44,8 +44,12 @@ final class QuickDesktopMediaBridge {
     }
 
     static Snapshot read(Context context) {
+        return read(context, true);
+    }
+
+    static Snapshot read(Context context, boolean preferSelectedApp) {
         boolean access = hasNotificationAccess(context);
-        MediaController controller = access ? findController(context) : null;
+        MediaController controller = access ? findController(context, preferSelectedApp) : null;
         if (controller == null) {
             AudioManager audio = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
             boolean playing = audio != null && audio.isMusicActive();
@@ -76,7 +80,11 @@ final class QuickDesktopMediaBridge {
     }
 
     static boolean togglePlayback(Context context) {
-        MediaController controller = hasNotificationAccess(context) ? findController(context) : null;
+        return togglePlayback(context,true);
+    }
+
+    static boolean togglePlayback(Context context,boolean preferSelectedApp) {
+        MediaController controller = hasNotificationAccess(context) ? findController(context,preferSelectedApp) : null;
         if (controller != null) {
             PlaybackState state = controller.getPlaybackState();
             boolean playing = state != null && (state.getState() == PlaybackState.STATE_PLAYING
@@ -132,6 +140,10 @@ final class QuickDesktopMediaBridge {
     }
 
     private static MediaController findController(Context context) {
+        return findController(context,true);
+    }
+
+    private static MediaController findController(Context context, boolean preferSelectedApp) {
         try {
             MediaSessionManager manager = (MediaSessionManager) context.getSystemService(
                     Context.MEDIA_SESSION_SERVICE);
@@ -140,7 +152,7 @@ final class QuickDesktopMediaBridge {
             List<MediaController> controllers = manager.getActiveSessions(listener);
             if (controllers == null || controllers.isEmpty()) return null;
             String selectedPackage = QuickDesktopController.getSelectedMusicPackage(context);
-            if (!TextUtils.isEmpty(selectedPackage)) {
+            if (preferSelectedApp && !TextUtils.isEmpty(selectedPackage)) {
                 for (MediaController controller : controllers) {
                     if (controller != null && selectedPackage.equals(controller.getPackageName())) {
                         return controller;

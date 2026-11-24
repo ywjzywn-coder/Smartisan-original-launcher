@@ -32,6 +32,32 @@
     invoke-virtual {v0,v1}, Lcom/smartisanos/launcher/ub;->S(I)Z
     move-result v1
     if-nez v1, :hide
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->navigationResizeContext()Landroid/content/Context;
+    move-result-object v1
+    if-eqz v1, :align_dock
+    invoke-static {v1}, Lcom/smartisanos/launcher/data/Constants;->resizeTabletLayout(Landroid/content/Context;)V
+    invoke-static {}, Lcom/smartisanos/smengine/Ra;->getInstance()Lcom/smartisanos/smengine/Ra;
+    move-result-object v0
+    invoke-virtual {v0}, Lcom/smartisanos/smengine/Ra;->jt()Lcom/smartisanos/smengine/Q;
+    move-result-object v0
+    invoke-virtual {v0}, Lcom/smartisanos/smengine/Q;->getRootNode()Lcom/smartisanos/smengine/SceneNode;
+    move-result-object v0
+    invoke-virtual {v0}, Lcom/smartisanos/smengine/SceneNode;->removeAllChildren()V
+    invoke-static {}, Lcom/smartisanos/launcher/view/Eb;->getInstance()Lcom/smartisanos/launcher/view/Eb;
+    move-result-object v0
+    invoke-virtual {v0}, Lcom/smartisanos/launcher/view/Eb;->rebuildTabletPages()V
+    goto :hide
+    :align_dock
+    invoke-static {}, Lcom/smartisanos/launcher/data/TabletLayout;->takeDockChange()Z
+    move-result v0
+    if-eqz v0, :read_page
+    invoke-static {}, Lcom/smartisanos/launcher/view/Eb;->getInstance()Lcom/smartisanos/launcher/view/Eb;
+    move-result-object v0
+    invoke-virtual {v0}, Lcom/smartisanos/launcher/view/Eb;->zh()Lcom/smartisanos/launcher/view/V;
+    move-result-object v0
+    if-eqz v0, :read_page
+    invoke-virtual {v0}, Lcom/smartisanos/launcher/view/V;->ap()V
+    :read_page
     invoke-virtual {p0}, Lcom/smartisanos/launcher/view/b/fa;->Wq()Lcom/smartisanos/launcher/view/b/M;
     move-result-object v6
     if-eqz v6, :hide

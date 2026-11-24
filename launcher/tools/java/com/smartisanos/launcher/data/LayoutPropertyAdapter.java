@@ -131,7 +131,7 @@ public final class LayoutPropertyAdapter {
             if (tablet && !folderLayout) {
                 if (resourceMode == 12 || resourceMode == 20) {
                     float density = resources.getDisplayMetrics().density;
-                    float dock = 84f * density + TabletLayout.bottomInset();
+                    float dock = 96f * density + TabletLayout.bottomInset();
                     setNumericField(property, "dock_height", dock);
                     setNumericField(property, "dock_cells_offset_y", TabletLayout.bottomInset() / 2f);
                     setNumericField(property, "dock_cells_offset_y_without_app_name", TabletLayout.bottomInset() / 2f);

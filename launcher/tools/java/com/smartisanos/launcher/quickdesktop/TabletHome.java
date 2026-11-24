@@ -1,7 +1,6 @@
 package com.smartisanos.launcher.quickdesktop;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.*;
 import android.content.pm.*;
 import android.graphics.*;
@@ -13,7 +12,6 @@ import android.widget.*;
 import com.smartisanos.home.settings.PreviewSettingItemView;
 import com.smartisanos.launcher.backup.TabletSlots;
 import com.smartisanos.launcher.data.TabletLayout;
-import com.smartisanos.launcher.reload.LauncherColdReloadCoordinator;
 import com.smartisanos.launcher.theme.MaintainedLauncherSettingsHost;
 import java.lang.ref.WeakReference;
 import java.util.*;
@@ -27,8 +25,10 @@ public final class TabletHome extends FrameLayout {
     private static final ExecutorService worker = Executors.newSingleThreadExecutor();
     private static final String HISTORY = "tablet_recent_launches";
     private final SharedPreferences prefs;
-    private final TabletTile calendar, companion;
+    private final TabletTile[] tiles = new TabletTile[TabletSlots.KINDS];
+    private int positions;
     private final LinearLayout recent;
+    private final Paint shelfPaint = new Paint();
     private final Runnable render = new Runnable() { public void run() { arrange(); } };
     private volatile Geometry state;
     private int recentGeneration;
@@ -55,12 +55,17 @@ public final class TabletHome extends FrameLayout {
     }
     private TabletHome(Context context) {
         super(context);
+        setWillNotDraw(false);
         prefs=context.getSharedPreferences(TabletSlots.PREF,0);
-        calendar=new TabletTile(context,TabletTile.CALENDAR);
-        companion=new TabletTile(context,prefs.getBoolean(TabletSlots.MUSIC,false) ? TabletTile.MUSIC : TabletTile.CLOCK);
+        positions=TabletSlots.positions(prefs);
+        for(int k=0;k<tiles.length;k++){
+            tiles[k]=new TabletTile(context,k);
+            tiles[k].setVisibility(GONE);
+            addView(tiles[k]);
+        }
         recent=new LinearLayout(context);
         recent.setGravity(Gravity.CENTER_VERTICAL);
-        addView(calendar);addView(companion);addView(recent);
+        addView(recent);
         setVisibility(INVISIBLE);
     }
     public static void setPinnedCount(int count) {
@@ -88,6 +93,24 @@ public final class TabletHome extends FrameLayout {
         super.onSizeChanged(w,h,oldW,oldH);
         post(render);
     }
+    @Override public WindowInsets onApplyWindowInsets(WindowInsets insets) {
+        post(render);
+        return super.onApplyWindowInsets(insets);
+    }
+
+    private void updateNavigation() {
+        WindowInsets insets = getRootWindowInsets();
+        if (insets == null) return;
+        int left, right, bottom;
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            android.graphics.Insets bars = insets.getInsetsIgnoringVisibility(WindowInsets.Type.navigationBars());
+            left = bars.left; right = bars.right; bottom = bars.bottom;
+        } else {
+            left = insets.getStableInsetLeft(); right = insets.getStableInsetRight();
+            bottom = insets.getStableInsetBottom();
+        }
+        TabletLayout.navigation(getResources().getConfiguration().orientation, left, right, bottom);
+    }
     @Override public void onWindowFocusChanged(boolean focus) {
         super.onWindowFocusChanged(focus);
         if (focus) { loadRecent(); post(render); }
@@ -100,6 +123,19 @@ public final class TabletHome extends FrameLayout {
     }
 
     private int dp(float value) {return Math.round(value*getResources().getDisplayMetrics().density);}
+    @Override protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        Geometry g=state;
+        if (g==null) return;
+        float top=getHeight()-g.dock, bottom=getHeight()-TabletLayout.bottomInset();
+        float edge=Math.max(1,dp(.75f));
+        shelfPaint.setColor(0x990d0e10);
+        canvas.drawRect(0,top,getWidth(),top+edge,shelfPaint);
+        shelfPaint.setColor(0x406a6d70);
+        canvas.drawRect(0,top+edge,getWidth(),top+edge*2,shelfPaint);
+        shelfPaint.setColor(0x660c0d0f);
+        canvas.drawRect(0,bottom-edge,getWidth(),bottom,shelfPaint);
+    }
     private static void place(View view,float left,float top,float width,float height) {
         LayoutParams p=(LayoutParams)view.getLayoutParams();
         int x=Math.round(left), y=Math.round(top), w=Math.max(1,Math.round(width)), h=Math.max(1,Math.round(height));
@@ -109,33 +145,46 @@ public final class TabletHome extends FrameLayout {
     }
 
     private void arrange() {
+        updateNavigation();
         Geometry g=state;
         int width=getWidth(), height=getHeight();
         if (g==null || width<=0 || height<=0 || g.cols*g.rows!=12 && g.cols*g.rows!=20
                 || (width>height)!=(g.cols>g.rows)) {setVisibility(INVISIBLE);return;}
         boolean entering = getVisibility() != VISIBLE;
         setVisibility(VISIBLE);
+        invalidate();
         if (entering) loadRecent();
         int[] origin=new int[2]; getLocationOnScreen(origin);
-        Rect[] slots=TabletSlots.rectangles(g.cols*g.rows,width>height);
-        boolean show=g.page==0 && prefs.getBoolean(TabletSlots.SHOW,false);
-        for(int i=0;i<slots.length;i++) {
-            View tile=i==0 ? calendar : companion;
-            Rect r=slots[i];
-            int mask=0;
-            for(int row=r.top;row<r.bottom;row++)
-                for(int col=r.left;col<r.right;col++) mask |= 1 << (row*g.cols+col);
-            tile.setVisibility(show && (mask & g.occupied)==0 ? VISIBLE : GONE);
+        positions=TabletSlots.positions(prefs);
+        for(int i=0;i<tiles.length;i++) {
+            View tile=tiles[i];
+            int slot=TabletSlots.slot(positions,i);
+            if(g.page!=0 || !TabletSlots.fits(positions,i,slot)){tile.setVisibility(GONE);continue;}
+            Rect r=TabletSlots.rect(g.cols*g.rows,width>height,i,slot);
+            int mask=TabletSlots.bits(r,g.cols);
+            tile.setVisibility((mask & g.occupied)==0 ? VISIBLE : GONE);
             float pad=Math.max(1,dp(.65f));
             place(tile,(width-g.cols*g.cw)*.5f+r.left*g.cw+pad,g.top-origin[1]+r.top*g.ch+pad,
                     r.width()*g.cw-2*pad,r.height()*g.ch-2*pad);
         }
-        int count=width/density()>=820 ? 3 : 2;
+        int count=Math.min(TabletLayout.recentLimit(width),Math.max(0,recent.getChildCount()-1));
+        TabletLayout.recentCount(count);
         float pitch=TabletLayout.dockPitch(width,pinned);
-        float start=TabletLayout.dockLeft(width,pinned)+(pinned+.25f)*pitch;
+        float start=TabletLayout.dockLeft(width,pinned)+pinned*pitch;
+        int gap=pinned>0 && count>0 ? Math.round(pitch*.25f) : 0;
         float bottom=TabletLayout.bottomInset();
         float content=g.dock-bottom;
-        place(recent,start,height-g.dock+dp(8),(count+.25f)*pitch,content);
+        place(recent,start,height-g.dock,count*Math.round(pitch)+gap,content);
+        if (recent.getChildCount()>0) {
+            View divider=recent.getChildAt(0);
+            LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)divider.getLayoutParams();
+            int line=gap>0 ? dp(1):0;
+            int inset=(gap-line)/2;
+            if (lp.width!=line || lp.leftMargin!=inset || lp.rightMargin!=gap-line-inset) {
+                lp.width=line; lp.leftMargin=inset; lp.rightMargin=gap-line-inset;
+                divider.setLayoutParams(lp);
+            }
+        }
         for (int i=1;i<recent.getChildCount();i++) {
             View v=recent.getChildAt(i);
             v.setVisibility(i<=count ? VISIBLE:GONE);
@@ -143,7 +192,6 @@ public final class TabletHome extends FrameLayout {
             if(lp.width!=Math.round(pitch)) {lp.width=Math.round(pitch);v.setLayoutParams(lp);}
         }
     }
-    private float density(){return getResources().getDisplayMetrics().density;}
 
     // Let RootView and its GL surface own every swipe, drag and long press.
     @Override public boolean dispatchTouchEvent(MotionEvent e) {return false;}
@@ -168,8 +216,7 @@ public final class TabletHome extends FrameLayout {
     }
     private View at(float x,float y) {
         if (state==null) return null;
-        if (contains(calendar,x,y)) return calendar;
-        if (contains(companion,x,y)) return companion;
+        for (View tile:tiles) if(contains(tile,x,y)) return tile;
         for(int i=1;i<recent.getChildCount();i++) {
             View child=recent.getChildAt(i);
             if(contains(child,x,y)) return child;
@@ -235,7 +282,7 @@ public final class TabletHome extends FrameLayout {
         if(!entries.isEmpty()) {
             View divider=new View(getContext()); divider.setBackgroundColor(0x66858889);
             LinearLayout.LayoutParams rule=new LinearLayout.LayoutParams(dp(1),dp(34));
-            rule.rightMargin=dp(9); recent.addView(divider,rule);
+            recent.addView(divider,rule);
         }
         for(RecentApp item:entries) {
             LinearLayout button=new LinearLayout(getContext());
@@ -243,8 +290,11 @@ public final class TabletHome extends FrameLayout {
             button.setContentDescription("最近使用，"+item.label);
             ImageView image=new ImageView(getContext());image.setImageDrawable(item.icon);
             image.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            button.addView(image,new LinearLayout.LayoutParams(dp(54),dp(54)));
+            LinearLayout.LayoutParams artwork=new LinearLayout.LayoutParams(dp(54),dp(54));
+            if(!prefs.getBoolean("launcher_hide_lable",false)) artwork.bottomMargin=dp(4);
+            button.addView(image,artwork);
             TextView label=new TextView(getContext());label.setText(item.label);label.setTextSize(14);
+            label.setIncludeFontPadding(false);
             label.setTextColor(0xffeeeeee);label.setGravity(Gravity.CENTER);
             label.setShadowLayer(2,0,1,0xff222222);label.setSingleLine();
             label.setEllipsize(TextUtils.TruncateAt.END);
@@ -264,9 +314,9 @@ public final class TabletHome extends FrameLayout {
 
     public static void bindSettings(Activity activity,PreviewSettingItemView twelve,PreviewSettingItemView twenty) {
         SharedPreferences prefs=activity.getSharedPreferences(TabletSlots.PREF,0);
-        boolean enabled=prefs.getBoolean(TabletSlots.SHOW,false);
-        twelve.setPreviewBitmap(preview(activity,12,enabled));
-        twenty.setPreviewBitmap(preview(activity,20,enabled));
+        int layout=TabletSlots.positions(prefs);
+        twelve.setPreviewBitmap(preview(activity,12,layout));
+        twenty.setPreviewBitmap(preview(activity,20,layout));
         ViewGroup row=(ViewGroup)twelve.getParent();
         if(!(row.getParent() instanceof LinearLayout)) return;
         LinearLayout parent=(LinearLayout)row.getParent();
@@ -274,26 +324,13 @@ public final class TabletHome extends FrameLayout {
         TextView control=new TextView(activity);
         control.setTag(TabletSlots.SHOW);control.setTextColor(0xff4f5360);control.setTextSize(16);
         int pad=Math.round(16*activity.getResources().getDisplayMetrics().density);
-        control.setPadding(pad,pad,pad,pad);control.setText("首页磁贴　"+(enabled ? (prefs.getBoolean(TabletSlots.MUSIC,false)?"日历和音乐":"日历和时钟") : "关闭")+"　›");
+        control.setPadding(pad,pad,pad,pad);control.setText("桌面组件　›");
         parent.addView(control,parent.indexOfChild(row)+1);
-        control.setOnClickListener(new OnClickListener() { public void onClick(View v) { new AlertDialog.Builder(activity).setTitle("首页磁贴")
-                .setItems(new String[]{"关闭磁贴","四格日历 ＋ 双格时钟","四格日历 ＋ 双格音乐"}, new DialogInterface.OnClickListener() { public void onClick(DialogInterface dialog,int choice) {
-                    boolean music=prefs.getBoolean(TabletSlots.MUSIC,false);
-                    if((choice!=0)==enabled && (choice==0 || (choice==2)==music)) return;
-                    Runnable apply=new Runnable() { public void run() {
-                        if(!prefs.edit().putBoolean(TabletSlots.SHOW,choice!=0).putBoolean(TabletSlots.MUSIC,choice==2).commit()) return;
-                        if(!LauncherColdReloadCoordinator.beginTabletTilesReload(activity)) {
-                            prefs.edit().putBoolean(TabletSlots.SHOW,enabled).putBoolean(TabletSlots.MUSIC,music).commit();
-                            Toast.makeText(activity,"桌面正在更新，请稍后再试",Toast.LENGTH_SHORT).show();
-                        }
-                    }};
-                    if(!enabled && choice!=0) new AlertDialog.Builder(activity).setTitle("为磁贴留出六格")
-                            .setMessage("首页这六格中的应用和文件夹会移到空位。当前页空间不足时，会顺延到其他页。")
-                            .setNegativeButton("取消",null).setPositiveButton("启用",new DialogInterface.OnClickListener() { public void onClick(DialogInterface d,int i) { apply.run(); }}).show();
-                    else apply.run();
-                }}).show(); }});
+        control.setOnClickListener(new OnClickListener(){public void onClick(View v){
+            new TabletTileLibrary(activity).show();
+        }});
     }
-    private static Bitmap preview(Activity a,int count,boolean tiles) {
+    private static Bitmap preview(Activity a,int count,int layout) {
         android.util.DisplayMetrics metrics=a.getResources().getDisplayMetrics();
         boolean land=metrics.widthPixels>metrics.heightPixels;
         int w=240, h=Math.max(140,Math.min(400,Math.round(w*metrics.heightPixels/(float)metrics.widthPixels)));
@@ -307,14 +344,13 @@ public final class TabletHome extends FrameLayout {
             float cx=(x+.5f)*cw,cy=(y+.5f)*ch,r=Math.min(cw,ch)*.15f;p.setColor(0xffbec3c4);
             c.drawRoundRect(cx-r,cy-r,cx+r,cy+r,2,2,p);
         }
-        if(tiles) {
-            Rect[] units=TabletSlots.rectangles(count,land);
-            int n=0;
-            for(Rect r:units) {
-                p.setColor(n++==0 ? 0xffd9d3c8 : 0xff727777);
-                c.drawRect(r.left*cw+1,r.top*ch+1,r.right*cw,r.bottom*ch,p);
-                if(n==1){p.setColor(0xff8c342e);c.drawRect(r.left*cw+1,r.top*ch+1,r.right*cw,(r.top+.35f)*ch,p);}
-            }
+        for(int kind=0;kind<TabletSlots.KINDS;kind++){
+            int slot=TabletSlots.slot(layout,kind);
+            if(!TabletSlots.fits(layout,kind,slot)) continue;
+            Rect r=TabletSlots.rect(count,land,kind,slot);
+            p.setColor(kind==0?0xffd9d3c8:0xff727777);
+            c.drawRect(r.left*cw+1,r.top*ch+1,r.right*cw,r.bottom*ch,p);
+            if(kind==0){p.setColor(0xff8c342e);c.drawRect(r.left*cw+1,r.top*ch+1,r.right*cw,(r.top+.35f)*ch,p);}
         }
         p.setColor(0xffa9adad);
         for(int i=0;i<5;i++) c.drawCircle(w*(.25f+i*.12f+(i>2?.035f:0)),h*.92f,Math.min(5,h*.045f),p);
